@@ -1,0 +1,24 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type VehicleType {
+  typeId: String!
+  typeName: String!
+}
+
+type VehicleMake {
+  makeId: String!
+  makeName: String!
+  vehicleTypes: [VehicleType!]!
+}
+
+type VehiclesPayload {
+  generatedAt: String!
+  totalMakes: Float!
+  makes: [VehicleMake!]!
+}
+
+type Query {
+  vehicles: VehiclesPayload!
+}
