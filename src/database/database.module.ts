@@ -1,12 +1,18 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { VehicleData, VehicleDataSchema } from './vehicle.schema';
+import {
+  VehicleMake,
+  VehicleMakeSchema,
+  VehicleData,
+  VehicleDataSchema,
+} from './vehicle.schema';
 import { VehicleRepository } from './vehicle.repository';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: VehicleData.name, schema: VehicleDataSchema },
+      { name: VehicleMake.name, schema: VehicleMakeSchema },
+      { name: VehicleData.name, schema: VehicleDataSchema }, // <- add this
     ]),
   ],
   providers: [VehicleRepository],

@@ -6,8 +6,8 @@ dotenv.config();
 const parsedConfig = ConfigSchema.safeParse(process.env);
 
 if (!parsedConfig.success) {
-  console.error('Invalid environment config');
-  console.error(parsedConfig.error.format());
+  console.error('[Config] Invalid environment configuration:');
+  console.error(JSON.stringify(parsedConfig.error.format(), null, 2));
   process.exit(1);
 }
 

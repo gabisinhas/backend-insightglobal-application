@@ -9,6 +9,9 @@ export const ConfigSchema = z.object({
   GET_VEHICLE_TYPES_URL: z.string(),
   XML_FETCH_RETRIES: z.coerce.number().default(2),
   XML_FETCH_TIMEOUT: z.coerce.number().default(10000),
+  XML_FETCH_BATCH_SIZE: z.coerce.number().default(50),
+  XML_FETCH_CONCURRENCY: z.coerce.number().default(10),
+  XML_FETCH_RETRY_DELAY_MS: z.coerce.number().default(1000),
 });
 
 export type AppConfig = z.infer<typeof ConfigSchema>;

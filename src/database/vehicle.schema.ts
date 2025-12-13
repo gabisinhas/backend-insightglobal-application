@@ -5,7 +5,7 @@ export type VehicleTypeDocument = VehicleType & Document;
 
 @Schema()
 export class VehicleType {
-  @Prop({ required: true })
+  @Prop({ required: true, index: true })
   typeId: string;
 
   @Prop({ required: true })
@@ -18,11 +18,13 @@ export type VehicleMakeDocument = VehicleMake & Document;
 
 @Schema()
 export class VehicleMake {
-  @Prop({ required: true })
+  @Prop({ required: true, index: true })
   makeId: string;
+
   @Prop({ required: true })
   makeName: string;
-  @Prop({ type: [VehicleTypeSchema], required: true })
+
+  @Prop({ type: [VehicleTypeSchema], default: [] })
   vehicleTypes: VehicleType[];
 }
 
@@ -30,7 +32,7 @@ export const VehicleMakeSchema = SchemaFactory.createForClass(VehicleMake);
 
 export type VehicleDataDocument = VehicleData & Document;
 
-@Schema({ collection: 'vehicles', timestamps: true })
+@Schema({ collection: 'vehicles_data', timestamps: true })
 export class VehicleData {
   @Prop({ required: true })
   generatedAt: string;
@@ -38,7 +40,7 @@ export class VehicleData {
   @Prop({ required: true })
   totalMakes: number;
 
-  @Prop({ type: [VehicleMakeSchema], required: true })
+  @Prop({ type: [VehicleMakeSchema], default: [] })
   makes: VehicleMake[];
 }
 

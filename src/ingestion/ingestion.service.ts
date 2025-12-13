@@ -1,91 +1,115 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { parseStringPromise } from 'xml2js';
 import { XmlClient } from './xml.client';
-import { VehicleTransformer } from './vehicle.transformer';
 import { VehicleRepository } from '../database/vehicle.repository';
-import { VehiclesPayload } from '../graphql/vehicle.types';
+import {
+  VehicleMake,
+  VehicleType,
+  VehicleData,
+} from '../database/vehicle.schema';
+
+interface RawVehicleType {
+  VehicleTypeId: string[];
+  VehicleTypeName: string[];
+}
+
+interface RawMake {
+  Make_ID: string[];
+  Make_Name: string[];
+}
 
 @Injectable()
 export class IngestionService {
   private readonly logger = new Logger(IngestionService.name);
-  private readonly BATCH_SIZE = 50; // Number of makes to fetch concurrently
+  private readonly maxRetries = 3;
 
   constructor(
     private readonly xmlClient: XmlClient,
-    private readonly transformer: VehicleTransformer,
-    private readonly repository: VehicleRepository,
+    private readonly vehicleRepository: VehicleRepository,
   ) {}
 
-  async ingest(): Promise<void> {
-    this.logger.log('Starting vehicle data ingestion');
-
-    let makesXml: string;
+  async ingestAllVehicleData(): Promise<void> {
     try {
-      makesXml = await this.xmlClient.fetchAllMakes();
-      this.logger.log('Fetched all vehicle makes XML successfully');
-    } catch (error) {
-      this.logger.error(
-        'Failed to fetch all vehicle makes',
-        error instanceof Error ? error.stack : JSON.stringify(error),
-      );
-      throw new Error('Ingestion failed at fetching makes');
-    }
+      const allMakesXml = await this.xmlClient.fetchAllMakes();
+      const makes: VehicleMake[] = await this.parseMakesXml(allMakesXml);
 
-    const vehicleTypesByMake: Map<string, string> = new Map();
+      this.logger.log(`Starting loop for ${makes.length} makes...`);
 
-    // Parse all makes
-    const makesArray = this.transformer.parseMakesXml(makesXml);
+      if (makes.length === 0) {
+        this.logger.error(
+          'WARNING: Makes list came back empty! Check the XML structure.',
+        );
+        return;
+      }
 
-    this.logger.log(`Total makes to process: ${makesArray.length}`);
+      const limitedMakes = makes.slice(0, 50);
 
-    // Process in batches
-    for (let i = 0; i < makesArray.length; i += this.BATCH_SIZE) {
-      const batch = makesArray.slice(i, i + this.BATCH_SIZE);
+      for (const make of limitedMakes) {
+        let attempt = 0;
+        let success = false;
 
-      this.logger.log(`Processing batch ${i / this.BATCH_SIZE + 1} (size=${batch.length})`);
-
-      await Promise.all(
-        batch.map(async (make) => {
+        while (attempt < this.maxRetries && !success) {
           try {
-            const typesXml = await this.xmlClient.fetchVehicleTypesForMake(Number(make.Make_ID));
-            vehicleTypesByMake.set(make.Make_ID, typesXml);
-            this.logger.debug(`Fetched types for make ${make.Make_ID}`);
+            attempt++;
+            const typesXml = await this.xmlClient.fetchVehicleTypes(
+              Number(make.makeId),
+            );
+
+            make.vehicleTypes = await this.parseTypesXml(typesXml);
+
+            await this.vehicleRepository.upsertVehicleMake(make);
+            success = true;
           } catch (err) {
-            this.logger.warn(
-              `Failed to fetch vehicle types for make ${make.Make_ID}`,
-              err instanceof Error ? err.stack : JSON.stringify(err),
+            this.logger.error(
+              `Error fetching types for makeId=${make.makeId}, attempt ${attempt}`,
+              err instanceof Error ? err.stack : String(err),
             );
           }
-        }),
-      );
-    }
+        }
+      }
 
-    this.logger.log(`Fetched vehicle types for ${vehicleTypesByMake.size} makes`);
+      const vehicleData: VehicleData = {
+        generatedAt: new Date().toISOString(),
+        totalMakes: limitedMakes.length,
+        makes: limitedMakes,
+      };
 
-    // Transform all XML into JSON payload
-    let payload: VehiclesPayload;
-    try {
-      payload = this.transformer.transform(makesXml, vehicleTypesByMake);
-      this.logger.log(`Transformed payload successfully. Total makes: ${payload.totalMakes}`);
-    } catch (error) {
+      await this.vehicleRepository.upsertVehicleData(vehicleData);
+      this.logger.log('Ingestion completed successfully');
+    } catch (err) {
       this.logger.error(
-        'Failed to transform XML to JSON',
-        error instanceof Error ? error.stack : JSON.stringify(error),
+        'Error during full ingestion',
+        err instanceof Error ? err.stack : String(err),
       );
-      throw new Error('Ingestion failed at transformation step');
     }
+  }
 
-    // Save payload to MongoDB
-    try {
-      await this.repository.replaceData(payload);
-      this.logger.log('Payload saved to database successfully');
-    } catch (error) {
-      this.logger.error(
-        'Failed to save payload to database',
-        error instanceof Error ? error.stack : JSON.stringify(error),
-      );
-      throw new Error('Ingestion failed at database persistence step');
-    }
+  private async parseMakesXml(xml: string): Promise<VehicleMake[]> {
+    const json = await parseStringPromise(xml);
 
-    this.logger.log('Vehicle data ingestion completed successfully');
+    const rawMakes: RawMake[] =
+      json?.Response?.Results?.[0]?.AllVehicleMakes || [];
+
+    this.logger.log(`XML parsed. Raw items found: ${rawMakes.length}`);
+
+    return rawMakes
+      .map((m) => ({
+        makeId: m.Make_ID ? m.Make_ID[0] : '',
+        makeName: m.Make_Name ? m.Make_Name[0] : 'Unknown',
+        vehicleTypes: [],
+      }))
+      .filter((m) => m.makeId !== '');
+  }
+  private async parseTypesXml(xml: string): Promise<VehicleType[]> {
+    const json = await parseStringPromise(xml);
+
+    const rawTypes = json?.Response?.Results?.[0]?.VehicleTypesForMakeIds || [];
+
+    return rawTypes
+      .map((t: any) => ({
+        typeId: t.VehicleTypeId ? t.VehicleTypeId[0] : '',
+        typeName: t.VehicleTypeName ? t.VehicleTypeName[0] : 'Unknown',
+      }))
+      .filter((t: any) => t.typeId !== '');
   }
 }

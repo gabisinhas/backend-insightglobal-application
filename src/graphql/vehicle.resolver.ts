@@ -8,9 +8,12 @@ export class VehicleResolver {
 
   @Query(() => VehiclesPayload)
   async vehicles(): Promise<VehiclesPayload> {
-    const data = await this.repository.getData();
+    const latest = await this.repository.getLatestData();
 
-    if (!data) {
+    if (!latest) {
+      console.log(
+        '--- ALERTA: Nenhum documento com marcas encontrado no MongoDB ---',
+      );
       return {
         generatedAt: new Date().toISOString(),
         totalMakes: 0,
@@ -18,17 +21,14 @@ export class VehicleResolver {
       };
     }
 
+    console.log(
+      `--- SUCESSO: Documento encontrado com ${latest.makes.length} marcas ---`,
+    );
+
     return {
-      generatedAt: data.generatedAt,
-      totalMakes: data.totalMakes,
-      makes: data.makes.map((make) => ({
-        ...make,
-        makeId: make.makeId,
-        vehicleTypes: make.vehicleTypes.map((type) => ({
-          ...type,
-          typeId: type.typeId,
-        })),
-      })),
+      generatedAt: latest.generatedAt || new Date().toISOString(),
+      totalMakes: latest.totalMakes || latest.makes.length,
+      makes: latest.makes,
     };
   }
 }
