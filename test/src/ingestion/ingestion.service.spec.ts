@@ -2,100 +2,109 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { IngestionService } from '../../../src/ingestion/ingestion.service';
 import { XmlClient } from '../../../src/ingestion/xml.client';
 import { VehicleRepository } from '../../../src/database/vehicle.repository';
-import { VehicleMake, VehicleType } from '../../../src/database/vehicle.schema';
+import {
+  VehicleTransformer,
+  ParsedVehicleMake,
+} from '../../../src/ingestion/vehicle.transformer';
+import { PinoLogger, getLoggerToken } from 'nestjs-pino';
+import { InternalServerErrorException } from '@nestjs/common';
 
 describe('IngestionService', () => {
   let service: IngestionService;
+  let xmlClient: XmlClient;
+  let repository: VehicleRepository;
+  let transformer: VehicleTransformer;
+  let logger: PinoLogger;
 
-  const mockXmlClient = {
-    fetchAllMakes: jest.fn(),
-    fetchVehicleTypes: jest.fn(),
-  };
+  const mockMakes: ParsedVehicleMake[] = [
+    { makeId: '1', makeName: 'Make1', vehicleTypes: [] },
+    { makeId: '2', makeName: 'Make2', vehicleTypes: [] },
+  ];
 
-  const mockVehicleRepository = {
-    upsertVehicleMake: jest.fn(),
-    upsertVehicleData: jest.fn(),
-  };
+  const mockVehicleTypes = [{ typeId: '101', typeName: 'Type1' }];
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         IngestionService,
-        { provide: XmlClient, useValue: mockXmlClient },
-        { provide: VehicleRepository, useValue: mockVehicleRepository },
+        {
+          provide: XmlClient,
+          useValue: {
+            fetchAllMakes: jest.fn().mockResolvedValue('<xml></xml>'),
+            fetchVehicleTypes: jest.fn().mockResolvedValue('<xml></xml>'),
+          },
+        },
+        {
+          provide: VehicleRepository,
+          useValue: {
+            upsertVehicleMake: jest.fn().mockResolvedValue(undefined),
+            upsertVehicleData: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: VehicleTransformer,
+          useValue: {
+            parseMakes: jest.fn().mockReturnValue(mockMakes),
+            parseVehicleTypes: jest.fn().mockReturnValue(mockVehicleTypes),
+          },
+        },
+        {
+          provide: getLoggerToken(IngestionService.name),
+          useValue: {
+            info: jest.fn(),
+            warn: jest.fn(),
+            error: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<IngestionService>(IngestionService);
+    xmlClient = module.get<XmlClient>(XmlClient);
+    repository = module.get<VehicleRepository>(VehicleRepository);
+    transformer = module.get<VehicleTransformer>(VehicleTransformer);
+    logger = module.get<PinoLogger>(getLoggerToken(IngestionService.name));
   });
 
-  describe('parseMakesXml', () => {
-    it('should correctly transform raw XML makes into VehicleMake array', async () => {
-      const mockXml = `
-        <Response>
-          <Results>
-            <AllVehicleMakes>
-              <Make_ID>440</Make_ID>
-              <Make_Name>ASTON MARTIN</Make_Name>
-            </AllVehicleMakes>
-            <AllVehicleMakes>
-              <Make_ID>441</Make_ID>
-              <Make_Name>TESLA</Make_Name>
-            </AllVehicleMakes>
-          </Results>
-        </Response>`;
+  it('should ingest all vehicle data successfully', async () => {
+    await service.ingestAllVehicleData();
 
-      const result = await (
-        service as unknown as {
-          parseMakesXml: (xml: string) => Promise<VehicleMake[]>;
-        }
-      ).parseMakesXml(mockXml);
+    // Use the method reference directly from the retrieved instance
+    expect(xmlClient.fetchAllMakes).toHaveBeenCalled();
+    expect(transformer.parseMakes).toHaveBeenCalled();
+    expect(repository.upsertVehicleMake).toHaveBeenCalledTimes(
+      mockMakes.length,
+    );
 
-      expect(result).toHaveLength(2);
-      expect(result[0]).toEqual({
-        makeId: '440',
-        makeName: 'ASTON MARTIN',
-        vehicleTypes: [],
-      });
-      if (result[1]) {
-        expect(result[1].makeName).toBe('TESLA');
-      }
-    });
+    expect(repository.upsertVehicleData).toHaveBeenCalledWith(
+      expect.objectContaining({ totalMakes: mockMakes.length }),
+    );
 
-    it('should return empty array and handle missing results gracefully', async () => {
-      const mockXml = `<Response><Results></Results></Response>`;
-      const result = await (
-        service as unknown as {
-          parseMakesXml: (xml: string) => Promise<VehicleMake[]>;
-        }
-      ).parseMakesXml(mockXml);
-      expect(result).toEqual([]);
-    });
+    expect(logger.info).toHaveBeenCalledWith(
+      'Ingestion completed successfully',
+    );
   });
 
-  describe('parseTypesXml', () => {
-    it('should correctly transform raw XML types into VehicleType array', async () => {
-      const mockXml = `
-        <Response>
-          <Results>
-            <VehicleTypesForMakeIds>
-              <VehicleTypeId>2</VehicleTypeId>
-              <VehicleTypeName>Passenger Car</VehicleTypeName>
-            </VehicleTypesForMakeIds>
-          </Results>
-        </Response>`;
+  it('should handle no makes found', async () => {
+    jest.spyOn(transformer, 'parseMakes').mockReturnValue([]);
 
-      const result = await (
-        service as unknown as {
-          parseTypesXml: (xml: string) => Promise<VehicleType[]>;
-        }
-      ).parseTypesXml(mockXml);
+    await service.ingestAllVehicleData();
 
-      expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
-        typeId: '2',
-        typeName: 'Passenger Car',
-      });
-    });
+    expect(logger.warn).toHaveBeenCalledWith(
+      'No makes found after XML transformation',
+    );
+    expect(repository.upsertVehicleMake).not.toHaveBeenCalled();
+    expect(repository.upsertVehicleData).not.toHaveBeenCalled();
+  });
+
+  it('should throw InternalServerErrorException on fatal error', async () => {
+    jest
+      .spyOn(xmlClient, 'fetchAllMakes')
+      .mockRejectedValue(new Error('XML fetch failed'));
+
+    await expect(service.ingestAllVehicleData()).rejects.toThrow(
+      InternalServerErrorException,
+    );
+    expect(logger.error).toHaveBeenCalled();
   });
 });

@@ -1,27 +1,21 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { config } from './config';
-import { Logger } from '@nestjs/common';
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
   app.enableCors();
   app.enableShutdownHooks();
 
-  const port = config.PORT || 3000;
+  const port = config.PORT || 4001;
   await app.listen(port);
 
-  logger.log(`Backend running on port ${port}`);
-  logger.log(`GraphQL available at http://localhost:${port}/graphql`);
+  console.log(`Backend running on port ${port}`);
+  console.log(`GraphQL available at http://localhost:${port}/graphql`);
 }
 
 bootstrap().catch((err) => {
-  const logger = new Logger('Bootstrap');
-  logger.error(
-    'Error starting the application',
-    err instanceof Error ? err.stack : err,
-  );
+  console.error('Fatal bootstrap error', err);
   process.exit(1);
 });

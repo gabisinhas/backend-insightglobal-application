@@ -1,131 +1,107 @@
-import {
-  Injectable,
-  Logger,
-  InternalServerErrorException,
-} from '@nestjs/common';
-import { parseStringPromise } from 'xml2js';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { XmlClient } from './xml.client';
 import { VehicleRepository } from '../database/vehicle.repository';
-import { VehicleMake, VehicleType } from '../database/vehicle.schema';
-
-interface RawMake {
-  Make_ID: string[];
-  Make_Name: string[];
-}
-
-interface RawVehicleType {
-  VehicleTypeId: string[];
-  VehicleTypeName: string[];
-}
-
-interface XmlResponse<T> {
-  Response: {
-    Results: T[];
-  };
-}
+import { VehicleTransformer, ParsedVehicleMake } from './vehicle.transformer';
+import { config } from '../config';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import pLimit from 'p-limit';
 
 @Injectable()
 export class IngestionService {
-  private readonly logger = new Logger(IngestionService.name);
-  private readonly maxRetries = 3;
+  private readonly concurrencyLimiter = pLimit(config.XML_FETCH_CONCURRENCY);
 
   constructor(
     private readonly xmlClient: XmlClient,
     private readonly vehicleRepository: VehicleRepository,
+    private readonly transformer: VehicleTransformer,
+    @InjectPinoLogger(IngestionService.name)
+    private readonly logger: PinoLogger,
   ) {}
 
-  async ingestAllVehicleData(): Promise<void> {
+  ingestAllVehicleData = async (): Promise<void> => {
     try {
       const allMakesXml = await this.xmlClient.fetchAllMakes();
-      const makes: VehicleMake[] = await this.parseMakesXml(allMakesXml);
+      const parsedMakes: ParsedVehicleMake[] =
+        this.transformer.parseMakes(allMakesXml);
 
-      if (makes.length === 0) {
-        this.logger.error('No makes found in XML structure');
+      if (!parsedMakes.length) {
+        this.logger.warn('No makes found after XML transformation');
         return;
       }
 
-      const limitedMakes = makes.slice(0, 50);
+      const batches = this.createBatches(
+        parsedMakes,
+        config.XML_FETCH_BATCH_SIZE,
+      );
 
-      for (const make of limitedMakes) {
-        let attempt = 0;
-        let success = false;
+      for (const [index, batch] of batches.entries()) {
+        this.logger.info(
+          { batch: index + 1, size: batch.length },
+          'Processing batch',
+        );
 
-        while (attempt < this.maxRetries && !success) {
-          try {
-            attempt++;
-            const typesXml = await this.xmlClient.fetchVehicleTypes(
-              Number(make.makeId),
-            );
+        const tasks = batch.map((make) =>
+          this.concurrencyLimiter(() => this.ingestMakeWithRetries(make)),
+        );
 
-            make.vehicleTypes = await this.parseTypesXml(typesXml);
-            await this.vehicleRepository.upsertVehicleMake(make);
-            success = true;
-          } catch (err) {
-            this.logger.error(
-              `Error fetching types for makeId=${make.makeId}, attempt ${attempt}`,
-              err instanceof Error ? err.stack : String(err),
-            );
-          }
-        }
+        await Promise.all(tasks);
       }
 
       await this.vehicleRepository.upsertVehicleData({
         generatedAt: new Date().toISOString(),
-        totalMakes: limitedMakes.length,
+        totalMakes: parsedMakes.length,
       });
 
-      this.logger.log('Ingestion completed successfully');
-    } catch (err) {
-      this.logger.error(
-        'Error during full ingestion',
-        err instanceof Error ? err.stack : String(err),
-      );
+      this.logger.info('Ingestion completed successfully');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      this.logger.error({ err: errorMessage }, 'Fatal error during ingestion');
       throw new InternalServerErrorException('Ingestion process failed');
     }
-  }
+  };
 
-  private async parseMakesXml(xml: string): Promise<VehicleMake[]> {
-    const parser = parseStringPromise as (xmlStr: string) => Promise<unknown>;
-    const parsed = await parser(xml);
+  private ingestMakeWithRetries = async (
+    make: ParsedVehicleMake,
+  ): Promise<void> => {
+    let attempt = 0;
+    while (attempt < config.XML_FETCH_RETRIES) {
+      attempt++;
+      try {
+        const typesXml = await this.xmlClient.fetchVehicleTypes(
+          Number(make.makeId),
+        );
+        const vehicleTypes = this.transformer.parseVehicleTypes(typesXml);
 
-    const json = parsed as XmlResponse<{
-      AllVehicleMakes: RawMake[];
-    }>;
+        if (Array.isArray(vehicleTypes)) {
+          make.vehicleTypes = vehicleTypes;
+          await this.vehicleRepository.upsertVehicleMake(make);
+          return;
+        } else {
+          throw new Error('Parsed vehicle types is not an array');
+        }
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
 
-    const results = json?.Response?.Results;
-    const rawMakes =
-      results && results.length > 0 ? results[0].AllVehicleMakes : [];
+        this.logger.error(
+          { makeId: make.makeId, attempt, err: errorMessage },
+          'Failed to ingest make',
+        );
 
-    if (!rawMakes) return [];
+        if (attempt >= config.XML_FETCH_RETRIES) {
+          this.logger.warn({ makeId: make.makeId }, 'Giving up on this make');
+          return;
+        }
 
-    return rawMakes
-      .map((m: RawMake) => ({
-        makeId: m.Make_ID ? String(m.Make_ID[0]) : '',
-        makeName: m.Make_Name ? String(m.Make_Name[0]) : 'Unknown',
-        vehicleTypes: [],
-      }))
-      .filter((m) => m.makeId !== '');
-  }
+        await new Promise((r) => setTimeout(r, 1000 * attempt));
+      }
+    }
+  };
 
-  private async parseTypesXml(xml: string): Promise<VehicleType[]> {
-    const parser = parseStringPromise as (xmlStr: string) => Promise<unknown>;
-    const parsed = await parser(xml);
-
-    const json = parsed as XmlResponse<{
-      VehicleTypesForMakeIds: RawVehicleType[];
-    }>;
-
-    const results = json?.Response?.Results;
-    const rawTypes =
-      results && results.length > 0 ? results[0].VehicleTypesForMakeIds : [];
-
-    if (!rawTypes) return [];
-
-    return rawTypes
-      .map((t: RawVehicleType) => ({
-        typeId: t.VehicleTypeId ? String(t.VehicleTypeId[0]) : '',
-        typeName: t.VehicleTypeName ? String(t.VehicleTypeName[0]) : 'Unknown',
-      }))
-      .filter((t) => t.typeId !== '');
+  private createBatches<T>(items: T[], batchSize: number): T[][] {
+    const batches: T[][] = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+      batches.push(items.slice(i, i + batchSize));
+    }
+    return batches;
   }
 }

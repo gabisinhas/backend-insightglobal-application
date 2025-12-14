@@ -2,10 +2,6 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { Field, ObjectType, ID, Int } from '@nestjs/graphql';
 
-/* -------------------------------------------------------------------------- */
-/*                               Vehicle Type                                 */
-/* -------------------------------------------------------------------------- */
-
 @ObjectType()
 @Schema({ _id: false })
 export class VehicleType {
@@ -19,10 +15,6 @@ export class VehicleType {
 }
 
 export const VehicleTypeSchema = SchemaFactory.createForClass(VehicleType);
-
-/* -------------------------------------------------------------------------- */
-/*                               Vehicle Make                                 */
-/* -------------------------------------------------------------------------- */
 
 export type VehicleMakeDocument = VehicleMake & Document;
 
@@ -44,14 +36,6 @@ export class VehicleMake {
 
 export const VehicleMakeSchema = SchemaFactory.createForClass(VehicleMake);
 
-/* -------------------------------------------------------------------------- */
-/*                          Vehicle Data (Metadata)                            */
-/* -------------------------------------------------------------------------- */
-
-/**
- * ⚠️ Persisted entity
- * Stores only metadata / summary info
- */
 export type VehicleDataDocument = VehicleDataEntity & Document;
 
 @Schema({ collection: 'vehicles_metadata', timestamps: true })
@@ -69,14 +53,6 @@ export class VehicleDataEntity {
 export const VehicleDataSchema =
   SchemaFactory.createForClass(VehicleDataEntity);
 
-/* -------------------------------------------------------------------------- */
-/*                          GraphQL Response Model                             */
-/* -------------------------------------------------------------------------- */
-
-/**
- * ✅ GraphQL contract returned by the `vehicles` query
- * Combines persisted metadata + related makes
- */
 @ObjectType()
 export class VehicleData {
   @Field()
