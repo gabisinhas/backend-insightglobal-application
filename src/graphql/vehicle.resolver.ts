@@ -31,7 +31,7 @@ export class VehicleResolver {
     };
   }
 
-  async resolveVehicleQuery(args: any) {
+  async resolveVehicleQuery(args: Record<string, unknown>) {
     this.logger.info(
       'VehicleResolver: Resolving vehicle query',
       JSON.stringify(args),
@@ -54,10 +54,13 @@ export class VehicleResolver {
         lastUpdated: new Date(data.generatedAt),
         makes: makes ?? [],
       };
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.stack : 'Unknown error';
+
       this.logger.error(
         'VehicleResolver: Failed to resolve vehicle query',
-        error.stack,
+        errorMessage,
       );
       throw error;
     }

@@ -7,6 +7,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { VehicleResolver } from './vehicle.resolver';
 import { VehicleData, VehicleDataSchema } from '../database/vehicle.schema';
 import { DatabaseModule } from '../database/database.module';
+import { LoggerService } from '../logging/logger.service';
 
 @Module({
   imports: [
@@ -20,6 +21,6 @@ import { DatabaseModule } from '../database/database.module';
       playground: true,
     }),
   ],
-  providers: [VehicleResolver],
+  providers: [VehicleResolver, LoggerService],
 })
 export class GraphqlModule {}
