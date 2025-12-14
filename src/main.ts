@@ -17,4 +17,11 @@ async function bootstrap() {
   logger.log(`GraphQL available at http://localhost:${port}/graphql`);
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  const logger = new Logger('Bootstrap');
+  logger.error(
+    'Error starting the application',
+    err instanceof Error ? err.stack : err,
+  );
+  process.exit(1);
+});

@@ -2,10 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { IngestionService } from '../../../src/ingestion/ingestion.service';
 import { XmlClient } from '../../../src/ingestion/xml.client';
 import { VehicleRepository } from '../../../src/database/vehicle.repository';
+import { VehicleMake, VehicleType } from '../../../src/database/vehicle.schema';
 
 describe('IngestionService', () => {
   let service: IngestionService;
-  let xmlClient: XmlClient;
 
   const mockXmlClient = {
     fetchAllMakes: jest.fn(),
@@ -27,7 +27,6 @@ describe('IngestionService', () => {
     }).compile();
 
     service = module.get<IngestionService>(IngestionService);
-    xmlClient = module.get<XmlClient>(XmlClient);
   });
 
   describe('parseMakesXml', () => {
@@ -46,7 +45,11 @@ describe('IngestionService', () => {
           </Results>
         </Response>`;
 
-      const result = await (service as any).parseMakesXml(mockXml);
+      const result = await (
+        service as unknown as {
+          parseMakesXml: (xml: string) => Promise<VehicleMake[]>;
+        }
+      ).parseMakesXml(mockXml);
 
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({
@@ -54,12 +57,18 @@ describe('IngestionService', () => {
         makeName: 'ASTON MARTIN',
         vehicleTypes: [],
       });
-      expect(result[1].makeName).toBe('TESLA');
+      if (result[1]) {
+        expect(result[1].makeName).toBe('TESLA');
+      }
     });
 
     it('should return empty array and handle missing results gracefully', async () => {
       const mockXml = `<Response><Results></Results></Response>`;
-      const result = await (service as any).parseMakesXml(mockXml);
+      const result = await (
+        service as unknown as {
+          parseMakesXml: (xml: string) => Promise<VehicleMake[]>;
+        }
+      ).parseMakesXml(mockXml);
       expect(result).toEqual([]);
     });
   });
@@ -76,7 +85,11 @@ describe('IngestionService', () => {
           </Results>
         </Response>`;
 
-      const result = await (service as any).parseTypesXml(mockXml);
+      const result = await (
+        service as unknown as {
+          parseTypesXml: (xml: string) => Promise<VehicleType[]>;
+        }
+      ).parseTypesXml(mockXml);
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({

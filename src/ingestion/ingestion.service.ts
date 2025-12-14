@@ -8,14 +8,20 @@ import {
   VehicleData,
 } from '../database/vehicle.schema';
 
+interface RawMake {
+  Make_ID: string[];
+  Make_Name: string[];
+}
+
 interface RawVehicleType {
   VehicleTypeId: string[];
   VehicleTypeName: string[];
 }
 
-interface RawMake {
-  Make_ID: string[];
-  Make_Name: string[];
+interface XmlResponse<T> {
+  Response: {
+    Results: T[];
+  };
 }
 
 @Injectable()
@@ -85,31 +91,51 @@ export class IngestionService {
   }
 
   private async parseMakesXml(xml: string): Promise<VehicleMake[]> {
-    const json = await parseStringPromise(xml);
+    // Hack para evitar o erro 'Unsafe call' do ESLint com xml2js
+    const parser = parseStringPromise as (xmlStr: string) => Promise<unknown>;
+    const parsed = await parser(xml);
 
-    const rawMakes: RawMake[] =
-      json?.Response?.Results?.[0]?.AllVehicleMakes || [];
+    const json = parsed as XmlResponse<{
+      AllVehicleMakes: RawMake[];
+    }>;
 
-    this.logger.log(`XML parsed. Raw items found: ${rawMakes.length}`);
+    const results = json?.Response?.Results;
+    const rawMakes =
+      results && results.length > 0 ? results[0].AllVehicleMakes : [];
+
+    this.logger.log(`XML parsed. Raw items found: ${rawMakes?.length || 0}`);
+
+    if (!rawMakes) return [];
 
     return rawMakes
-      .map((m) => ({
-        makeId: m.Make_ID ? m.Make_ID[0] : '',
-        makeName: m.Make_Name ? m.Make_Name[0] : 'Unknown',
+      .map((m: RawMake) => ({
+        makeId: m.Make_ID ? String(m.Make_ID[0]) : '',
+        makeName: m.Make_Name ? String(m.Make_Name[0]) : 'Unknown',
         vehicleTypes: [],
       }))
       .filter((m) => m.makeId !== '');
   }
-  private async parseTypesXml(xml: string): Promise<VehicleType[]> {
-    const json = await parseStringPromise(xml);
 
-    const rawTypes = json?.Response?.Results?.[0]?.VehicleTypesForMakeIds || [];
+  private async parseTypesXml(xml: string): Promise<VehicleType[]> {
+    // Hack para evitar o erro 'Unsafe call' do ESLint com xml2js
+    const parser = parseStringPromise as (xmlStr: string) => Promise<unknown>;
+    const parsed = await parser(xml);
+
+    const json = parsed as XmlResponse<{
+      VehicleTypesForMakeIds: RawVehicleType[];
+    }>;
+
+    const results = json?.Response?.Results;
+    const rawTypes =
+      results && results.length > 0 ? results[0].VehicleTypesForMakeIds : [];
+
+    if (!rawTypes) return [];
 
     return rawTypes
-      .map((t: any) => ({
-        typeId: t.VehicleTypeId ? t.VehicleTypeId[0] : '',
-        typeName: t.VehicleTypeName ? t.VehicleTypeName[0] : 'Unknown',
+      .map((t: RawVehicleType) => ({
+        typeId: t.VehicleTypeId ? String(t.VehicleTypeId[0]) : '',
+        typeName: t.VehicleTypeName ? String(t.VehicleTypeName[0]) : 'Unknown',
       }))
-      .filter((t: any) => t.typeId !== '');
+      .filter((t) => t.typeId !== '');
   }
 }

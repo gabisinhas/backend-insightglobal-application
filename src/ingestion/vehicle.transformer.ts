@@ -2,6 +2,23 @@ import { Injectable, Logger } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
 import { ensureArray } from '../utils/array';
 
+// Interfaces para tipagem do XML bruto
+interface RawMake {
+  Make_ID: string;
+  Make_Name: string;
+}
+
+interface RawVehicleType {
+  VehicleTypeId: string;
+  VehicleTypeName: string;
+}
+
+interface XmlResponse<T> {
+  Response?: {
+    Results?: T;
+  };
+}
+
 export interface VehicleMake {
   makeId: string;
   makeName: string;
@@ -27,12 +44,14 @@ export class VehicleTransformer {
   /**
    * Parse raw makes XML and normalize into an array of objects
    */
-  parseMakesXml(
-    makesXml: string,
-  ): { Make_ID: string; Make_Name: string }[] {
+  parseMakesXml(makesXml: string): RawMake[] {
     try {
-      const parsed = this.parser.parse(makesXml);
+      // Cast duplo para satisfazer o ESLint (any -> unknown -> Type)
+      const parsed = this.parser.parse(makesXml) as unknown as XmlResponse<{
+        AllVehicleMakes: RawMake | RawMake[];
+      }>;
       const makes = parsed?.Response?.Results?.AllVehicleMakes ?? [];
+
       return Array.isArray(makes) ? makes : [makes];
     } catch (err) {
       this.logger.error(
@@ -53,19 +72,24 @@ export class VehicleTransformer {
     const makesArray = this.parseMakesXml(makesXml);
 
     const makes: VehicleMake[] = makesArray.map((make) => {
-      const typesXml = vehicleTypesByMake.get(make.Make_ID) ?? '';
+      const typesXml = vehicleTypesByMake.get(String(make.Make_ID)) ?? '';
       let vehicleTypes: { typeId: string; typeName: string }[] = [];
 
       if (typesXml) {
         try {
-          const parsedTypes = this.parser.parse(typesXml);
-          const typesArray = ensureArray(
+          const parsedTypes = this.parser.parse(
+            typesXml,
+          ) as unknown as XmlResponse<{
+            VehicleTypesForMakeIds: RawVehicleType | RawVehicleType[];
+          }>;
+
+          const typesArray = ensureArray<RawVehicleType>(
             parsedTypes?.Response?.Results?.VehicleTypesForMakeIds,
           );
 
-          vehicleTypes = typesArray.map((t: any) => ({
-            typeId: t.VehicleTypeId,
-            typeName: t.VehicleTypeName,
+          vehicleTypes = typesArray.map((t) => ({
+            typeId: String(t.VehicleTypeId),
+            typeName: String(t.VehicleTypeName),
           }));
         } catch (err) {
           this.logger.warn(
@@ -77,8 +101,8 @@ export class VehicleTransformer {
       }
 
       return {
-        makeId: make.Make_ID,
-        makeName: make.Make_Name,
+        makeId: String(make.Make_ID),
+        makeName: String(make.Make_Name),
         vehicleTypes,
       };
     });
