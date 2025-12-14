@@ -94,6 +94,7 @@ query {
 ## Running Tests
 npm run test
 
+```mermaid
 graph TD
     Start[Início] --> FetchMakes{Fetch Makes XML}
     FetchMakes -- Error --> Retry[Retry Logic 3x]
@@ -116,3 +117,4 @@ graph TD
     style Start fill:#f9f,stroke:#333
     style Success fill:#0f0,stroke:#333
     style Limit fill:#fff4dd,stroke:#d4a017
+```
