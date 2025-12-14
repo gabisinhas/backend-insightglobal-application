@@ -1,8 +1,8 @@
-#### Backend-InsightGlobal-Application
+## Backend-InsightGlobal-Application
 
 This project is a backend application built with NestJS. It implements a data ingestion pipeline that transforms XML data from public APIs into a unified JSON structure, stored in MongoDB and exposed via GraphQL.
 
-### Overview
+## Overview
 
 - Data Persistence: Uses MongoDB to store transformed vehicle data.
 - Ingestion Logic: During the ingestion process, the service fetches makes and types, replacing the existing dataset with the latest version to ensure data consistency.
@@ -40,14 +40,14 @@ Make sure you have the following installed on your machine:
 - npm
 - Docker and Docker Compose (for running MongoDB)
 
-# 1-Clone Repository
+## 1-Clone Repository
 git clone <repository-url>
 cd backend-insightglobal-application
 
-# 2-Configure Environment Variables
+## 2-Configure Environment Variables
 ensure you have a .env file with the correct variables
 
-### as reference
+#### as reference
 NODE_ENV=development
 PORT=4000
 MONGODB_URI=mongodb+srv://db:yourpassword@cluster0.oln4o.mongodb.net/?retryWrites=true&w=majority
@@ -60,23 +60,23 @@ GET_VEHICLE_TYPES_URL=https://vpic.nhtsa.dot.gov/api/vehicles/GetVehicleTypesFor
 XML_FETCH_RETRIES=2
 XML_FETCH_TIMEOUT=10000
 
-# 3-Start MongoDB
+## 3-Start MongoDB
 you can use a local MongoDB installation.
 
-# 4-Install dependencies
+## 4-Install dependencies
 npm install
 
-# 5-Run Locally (Development)
+## 5-Run Locally (Development)
 npm run start:dev
 
-# 6-Run via Docker (Recommended)
+## 6-Run via Docker (Recommended)
 docker-compose up --build
 
-# 7-Access GraphQL
+## 7-Access GraphQL
 http://localhost:3000/graphql
 Schema: Data is served directly from the persistent datastore.
 
-# Example query:
+## Example query:
 
 query {
   vehicles {
@@ -91,29 +91,28 @@ query {
   }
 }
 
-# Running Tests
+## Running Tests
 npm run test
 
-
 graph TD
-    A[Início do Processo] --> B{Busca Todas as Marcas <br/> API NHTSA XML}
-    B -- Falha --> C[Retry Logic - max 3x]
-    C --> B
-    B -- Sucesso --> D[Parse XML para JSON]
-    D --> E[Limitar para as primeiras 50 marcas]
+    Start[Início] --> FetchMakes{Fetch Makes XML}
+    FetchMakes -- Error --> Retry[Retry Logic 3x]
+    Retry --> FetchMakes
+    FetchMakes -- Success --> Limit[Limit to 50 items]
     
-    E --> F{Para cada Marca...}
-    F --> G[Busca Tipos de Veículo <br/> via MakeID XML]
-    G -- Falha --> H[Log Erro e Pula para próxima]
-    G -- Sucesso --> I[Transforma e Unifica Dados]
-    I --> J[Upsert da Marca no MongoDB]
-    J --> K{Fim da lista?}
+    Limit --> Loop[Loop each Make]
+    Loop --> FetchTypes{Fetch Types XML}
+    FetchTypes -- Error --> LogSkip[Log Error & Skip]
+    LogSkip --> Loop
+    FetchTypes -- Success --> Transform[Transform to JSON]
     
-    K -- Não --> F
-    K -- Sim --> L[Gerar Objeto Final VehicleData]
-    L --> M[Persistir Documento Consolidado]
-    M --> N[Ingestão Concluída]
+    Transform --> Upsert[Upsert to MongoDB]
+    Upsert --> CheckEnd{End of list?}
+    
+    CheckEnd -- No --> Loop
+    CheckEnd -- Yes --> FinalDoc[Persist Final VehicleData]
+    FinalDoc --> Success[Ingestion Complete]
 
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style N fill:#00ff00,stroke:#333,stroke-width:2px
-    style E fill:#fff4dd,stroke:#d4a017,stroke-width:2px
+    style Start fill:#f9f,stroke:#333
+    style Success fill:#0f0,stroke:#333
+    style Limit fill:#fff4dd,stroke:#d4a017
