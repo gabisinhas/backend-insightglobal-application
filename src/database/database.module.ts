@@ -3,7 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import {
   VehicleMake,
   VehicleMakeSchema,
-  VehicleData,
+  VehicleDataEntity,
   VehicleDataSchema,
 } from './vehicle.schema';
 import { VehicleRepository } from './vehicle.repository';
@@ -11,8 +11,14 @@ import { VehicleRepository } from './vehicle.repository';
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: VehicleMake.name, schema: VehicleMakeSchema },
-      { name: VehicleData.name, schema: VehicleDataSchema },
+      {
+        name: VehicleMake.name,
+        schema: VehicleMakeSchema,
+      },
+      {
+        name: VehicleDataEntity.name,
+        schema: VehicleDataSchema,
+      },
     ]),
   ],
   providers: [VehicleRepository],

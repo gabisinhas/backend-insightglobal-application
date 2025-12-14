@@ -13,13 +13,18 @@ type VehicleMake {
   vehicleTypes: [VehicleType!]!
 }
 
-type VehiclesPayload {
-  generatedAt: String!
+type VehicleData {
+  identifier: String!
   totalMakes: Int!
+  lastUpdated: DateTime!
   makes: [VehicleMake!]!
 }
 
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
 type Query {
-  """Retrieves the unified structure of vehicle metadata and manufacturers"""
-  vehicles: VehiclesPayload!
+  vehicles: VehicleData
 }

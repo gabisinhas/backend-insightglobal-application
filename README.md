@@ -80,21 +80,23 @@ http://localhost:4000/graphql
 Schema: Data is served directly from the persistent datastore.
 
 ## Example query:
+```graphql
+query {
+  vehicles {
+    identifier
+    totalMakes
+    lastUpdated
+    makes {
+      makeId
+      makeName
+      vehicleTypes {
+        typeId
+        typeName
+      }
+    }
+  }
+}
 
-	query {
-	  vehicles {
-	    generatedAt
-	    totalMakes
-	    makes {
-	      makeId
-	      makeName
-	      vehicleTypes {
-	        typeId
-	        typeName
-	      }
-	    }
-	  }
-	}
 
 ## Running Tests
 # Unit tests

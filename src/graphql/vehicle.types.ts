@@ -1,14 +1,25 @@
 import { ObjectType, Field, Int } from '@nestjs/graphql';
-import { VehicleMake } from '../database/vehicle.schema'; // Import the existing class
 
 @ObjectType()
-export class VehiclesPayload {
+export class VehicleMakeType {
+  @Field(() => Int)
+  makeId: number;
+
   @Field()
-  generatedAt: string;
+  makeName: string;
+}
+
+@ObjectType()
+export class VehicleData {
+  @Field()
+  identifier: string;
 
   @Field(() => Int)
   totalMakes: number;
 
-  @Field(() => [VehicleMake])
-  makes: VehicleMake[];
+  @Field()
+  lastUpdated: Date;
+
+  @Field(() => [VehicleMakeType], { nullable: 'items' })
+  makes: VehicleMakeType[];
 }

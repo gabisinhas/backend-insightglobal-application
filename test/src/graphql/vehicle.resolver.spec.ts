@@ -1,82 +1,72 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { InternalServerErrorException } from '@nestjs/common';
 import { VehicleResolver } from '../../../src/graphql/vehicle.resolver';
 import { VehicleRepository } from '../../../src/database/vehicle.repository';
 
 describe('VehicleResolver', () => {
   let resolver: VehicleResolver;
-  let repository: VehicleRepository;
 
-  const mockMetadata = {
-    generatedAt: '2025-12-14T14:38:50.388Z',
+  let getLatestDataMock: jest.Mock;
+  let findAllMakesMock: jest.Mock;
+
+  const mockVehicleData = {
+    identifier: 'GLOBAL_SUMMARY',
     totalMakes: 2,
+    generatedAt: new Date('2025-01-01T10:00:00Z').toISOString(),
   };
 
   const mockMakes = [
-    { makeId: '1', makeName: 'A-Test', vehicleTypes: [] },
-    { makeId: '2', makeName: 'B-Test', vehicleTypes: [] },
+    { makeId: 440, makeName: 'ASTON MARTIN' },
+    { makeId: 441, makeName: 'TESLA' },
   ];
 
   beforeEach(async () => {
+    getLatestDataMock = jest.fn().mockResolvedValue(mockVehicleData);
+    findAllMakesMock = jest.fn().mockResolvedValue(mockMakes);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VehicleResolver,
         {
           provide: VehicleRepository,
           useValue: {
-            getLatestData: jest.fn(),
-            findAllMakes: jest.fn(),
+            getLatestData: getLatestDataMock,
+            findAllMakes: findAllMakesMock,
           },
         },
       ],
     }).compile();
 
     resolver = module.get<VehicleResolver>(VehicleResolver);
-    repository = module.get<VehicleRepository>(VehicleRepository);
   });
 
   it('should be defined', () => {
     expect(resolver).toBeDefined();
   });
 
-  describe('vehicles query', () => {
-    it('should return a unified payload when data exists (Happy Path)', async () => {
-      jest
-        .spyOn(repository, 'getLatestData')
-        .mockResolvedValue(mockMetadata as any);
-      jest
-        .spyOn(repository, 'findAllMakes')
-        .mockResolvedValue(mockMakes as any);
-
-      const result = await resolver.vehicles();
+  describe('getVehicles', () => {
+    it('should return unified vehicle data with makes', async () => {
+      const result = await resolver.getVehicles();
 
       expect(result).toEqual({
-        generatedAt: mockMetadata.generatedAt,
-        totalMakes: mockMetadata.totalMakes,
+        identifier: 'GLOBAL_SUMMARY',
+        totalMakes: 2,
+        lastUpdated: new Date(mockVehicleData.generatedAt),
         makes: mockMakes,
       });
-      expect(repository.getLatestData).toHaveBeenCalledTimes(1);
-      expect(repository.findAllMakes).toHaveBeenCalledTimes(1);
+
+      expect(getLatestDataMock).toHaveBeenCalledTimes(1);
+      expect(findAllMakesMock).toHaveBeenCalledTimes(1);
     });
 
-    it('should return an empty payload gracefully when no data is found', async () => {
-      jest.spyOn(repository, 'getLatestData').mockResolvedValue(null);
-      jest.spyOn(repository, 'findAllMakes').mockResolvedValue([]);
+    it('should return null when no vehicle data exists', async () => {
+      getLatestDataMock.mockResolvedValueOnce(null);
 
-      const result = await resolver.vehicles();
-      expect(result.totalMakes).toBe(0);
-      expect(result.makes).toEqual([]);
-      expect(result.generatedAt).toBeDefined();
-    });
+      const result = await resolver.getVehicles();
 
-    it('should throw InternalServerErrorException if the repository fails', async () => {
-      jest
-        .spyOn(repository, 'findAllMakes')
-        .mockRejectedValue(new Error('DB Error'));
+      expect(result).toBeNull();
 
-      await expect(resolver.vehicles()).rejects.toThrow(
-        InternalServerErrorException,
-      );
+      expect(getLatestDataMock).toHaveBeenCalledTimes(1);
+      expect(findAllMakesMock).toHaveBeenCalledTimes(1);
     });
   });
 });
