@@ -94,9 +94,11 @@ query {
 ## Running Tests
 npm run test
 
+
+## Ingestion Pipeline Architecture
 ```mermaid
 graph TD
-    Start[Início] --> FetchMakes{Fetch Makes XML}
+    Start[Start] --> FetchMakes{Fetch Makes XML}
     FetchMakes -- Error --> Retry[Retry Logic 3x]
     Retry --> FetchMakes
     FetchMakes -- Success --> Limit[Limit to 50 items]
