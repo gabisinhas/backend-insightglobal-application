@@ -4,24 +4,26 @@ This project is a backend application built with NestJS. It implements a data in
 
 ## Overview
 
-- Data Persistence: Uses MongoDB to store transformed vehicle data.
-- Ingestion Logic: During the ingestion process, the service fetches makes and types, replacing the existing dataset with the latest version to ensure data consistency.
-- API Layer: A read-only GraphQL API serves the stored data, ensuring no external overhead during client queries.
+- Data Persistence: Uses MongoDB to store transformed vehicle data with optimized indexing.
+- Ingestion Logic: During the ingestion process, the service fetches makes and types, performing an upsert to ensure the dataset is always up to date and consistent.
+- API Layer: A read-only GraphQL API serves the stored data, ensuring high performance and type safety for client queries.
+- CI/CD: Integrated GitHub Actions pipeline for automated linting, testing, and containerization.
 
 ## Tech Stack
 - Framework: NestJS (Node.js)
 - Language: TypeScript
 - Database: MongoDB (Mongoose)
 - API: GraphQL (Apollo)
-- Validation: Zod (Configuration)
+- Validation: Zod (Configuration validation)
 - Logging: Pino (Structured JSON Logs)
+- CI: GitHub Actions
 
 ### Engineering Documentation
 1. Ingestion Pipeline
 The service follows a Fetch-Transform-Persist pattern:
 - Fetch: Pulls raw XML from NHTSA endpoints.
 - Transform: Parses XML using xml2js and maps it to TypeScript interfaces. It combines Make data with Vehicle Type data into a single unified object.
-- Persist: Uses an upsert strategy in MongoDB to ensure the dataset is always the most recent without creating duplicates.
+- Persist: Uses a split-storage strategy. Individual makes are stored in the VehicleMake collection to avoid MongoDB's 16MB document limit, while global metadata is stored in VehicleData.
 
 2. Error Handling Strategy
 - Network Resilience: Implements a retry mechanism (max 3 attempts) for external XML API calls.
@@ -30,6 +32,12 @@ The service follows a Fetch-Transform-Persist pattern:
 
 3. Logging Strategy
 The application uses Structured JSON Logging. This allows for better observability and log aggregation in production environments (like ELK or Datadog).
+
+4. CI Pipeline
+The project includes a GitHub Actions workflow that triggers on every push or PR to main:
+Linting: Ensures code follows the established style guide.
+Testing: Executes the unit test suite to prevent regressions.
+Build: Verifies the production build and generates a Docker image.
 
 ## How to Run the Application
 Prerequisites
@@ -47,18 +55,9 @@ cd backend-insightglobal-application
 ## 2-Configure Environment Variables
 ensure you have a .env file with the correct variables
 
-#### as reference
-NODE_ENV=development
-PORT=4000
-MONGODB_URI=mongodb+srv://db:yourpassword@cluster0.oln4o.mongodb.net/?retryWrites=true&w=majority
-PORT=3000
-LOG_LEVEL=info
+#### as reference check .env-example
 
-GET_ALL_MAKES_URL=https://vpic.nhtsa.dot.gov/api/vehicles/getallmakes?format=XML
-GET_VEHICLE_TYPES_URL=https://vpic.nhtsa.dot.gov/api/vehicles/GetVehicleTypesForMakeId/{id}?format=xml
-
-XML_FETCH_RETRIES=2
-XML_FETCH_TIMEOUT=10000
+***If running via Docker Compose, use MONGODB_URI=mongodb://vehicle-mongodb:27017/vehicle_db".
 
 ## 3-Start MongoDB
 you can use a local MongoDB installation.
@@ -67,38 +66,47 @@ you can use a local MongoDB installation.
 npm install
 
 ## 5-Run Locally (Development)
+# Start MongoDB via Docker
+docker-compose up -d mongodb
+
+# Run in dev mode
 npm run start:dev
 
 ## 6-Run via Docker (Recommended)
 docker-compose up --build
 
 ## 7-Access GraphQL
-http://localhost:3000/graphql
+http://localhost:4000/graphql
 Schema: Data is served directly from the persistent datastore.
 
 ## Example query:
 
-query {
-  vehicles {
-    totalMakes
-    generatedAt
-    makes {
-      makeName
-      vehicleTypes {
-        typeName
-      }
-    }
-  }
-}
+	query {
+	  vehicles {
+	    generatedAt
+	    totalMakes
+	    makes {
+	      makeId
+	      makeName
+	      vehicleTypes {
+	        typeId
+	        typeName
+	      }
+	    }
+	  }
+	}
 
 ## Running Tests
+# Unit tests
 npm run test
 
+# Linting
+npm run lint
 
 ## Ingestion Pipeline Architecture
 ```mermaid
 graph TD
-    Start[Start] --> FetchMakes{Fetch Makes XML}
+    Start([Start Ingestion]) --> FetchMakes{Fetch Makes XML}
     FetchMakes -- Error --> Retry[Retry Logic 3x]
     Retry --> FetchMakes
     FetchMakes -- Success --> Limit[Limit to 50 items]
@@ -113,10 +121,11 @@ graph TD
     Upsert --> CheckEnd{End of list?}
     
     CheckEnd -- No --> Loop
-    CheckEnd -- Yes --> FinalDoc[Persist Final VehicleData]
-    FinalDoc --> Success[Ingestion Complete]
+    CheckEnd -- Yes --> FinalDoc[Persist Global Metadata]
+    FinalDoc --> Success([Ingestion Complete])
 
-    style Start fill:#f9f,stroke:#333
-    style Success fill:#0f0,stroke:#333
+    style Start fill:#e1f5fe,stroke:#01579b
+    style Success fill:#e8f5e9,stroke:#2e7d32
     style Limit fill:#fff4dd,stroke:#d4a017
+    style Retry fill:#fce4ec,stroke:#880e4f
 ```

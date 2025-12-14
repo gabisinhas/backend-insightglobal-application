@@ -12,7 +12,7 @@ import { VehicleRepository } from './vehicle.repository';
   imports: [
     MongooseModule.forFeature([
       { name: VehicleMake.name, schema: VehicleMakeSchema },
-      { name: VehicleData.name, schema: VehicleDataSchema }, // <- add this
+      { name: VehicleData.name, schema: VehicleDataSchema },
     ]),
   ],
   providers: [VehicleRepository],

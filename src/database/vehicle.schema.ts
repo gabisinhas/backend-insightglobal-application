@@ -1,13 +1,15 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
+import { Field, ObjectType, ID, Int } from '@nestjs/graphql';
 
-export type VehicleTypeDocument = VehicleType & Document;
-
-@Schema()
+@ObjectType('VehicleType')
+@Schema({ _id: false })
 export class VehicleType {
-  @Prop({ required: true, index: true })
+  @Field()
+  @Prop({ required: true })
   typeId: string;
 
+  @Field()
   @Prop({ required: true })
   typeName: string;
 }
@@ -16,14 +18,18 @@ export const VehicleTypeSchema = SchemaFactory.createForClass(VehicleType);
 
 export type VehicleMakeDocument = VehicleMake & Document;
 
-@Schema()
+@ObjectType('VehicleMake')
+@Schema({ timestamps: true, collection: 'vehicle_makes' })
 export class VehicleMake {
-  @Prop({ required: true, index: true })
+  @Field(() => ID)
+  @Prop({ required: true, unique: true, index: true })
   makeId: string;
 
-  @Prop({ required: true })
+  @Field()
+  @Prop({ required: true, index: true })
   makeName: string;
 
+  @Field(() => [VehicleType])
   @Prop({ type: [VehicleTypeSchema], default: [] })
   vehicleTypes: VehicleType[];
 }
@@ -32,16 +38,19 @@ export const VehicleMakeSchema = SchemaFactory.createForClass(VehicleMake);
 
 export type VehicleDataDocument = VehicleData & Document;
 
-@Schema({ collection: 'vehicles_data', timestamps: true })
+@ObjectType('VehicleData')
+@Schema({ collection: 'vehicles_metadata', timestamps: true })
 export class VehicleData {
+  @Prop({ required: true, unique: true, default: 'GLOBAL_SUMMARY' })
+  identifier: string;
+
+  @Field()
   @Prop({ required: true })
   generatedAt: string;
 
+  @Field(() => Int)
   @Prop({ required: true })
   totalMakes: number;
-
-  @Prop({ type: [VehicleMakeSchema], default: [] })
-  makes: VehicleMake[];
 }
 
 export const VehicleDataSchema = SchemaFactory.createForClass(VehicleData);

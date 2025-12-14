@@ -1,12 +1,21 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { VehicleData, VehicleDataDocument } from './vehicle.schema';
-import { VehicleMake, VehicleMakeDocument } from './vehicle.schema';
-import { VehicleType } from './vehicle.schema';
+import {
+  VehicleData,
+  VehicleDataDocument,
+  VehicleMake,
+  VehicleMakeDocument,
+} from './vehicle.schema';
 
 @Injectable()
 export class VehicleRepository {
+  private readonly logger = new Logger(VehicleRepository.name);
+
   constructor(
     @InjectModel(VehicleData.name)
     private readonly vehicleDataModel: Model<VehicleDataDocument>,
@@ -16,65 +25,88 @@ export class VehicleRepository {
   ) {}
 
   async getLatestData(): Promise<VehicleData | null> {
-    return this.vehicleDataModel
-      .findOne({ 'makes.0': { $exists: true } })
-      .exec();
-  }
-
-  async getData(): Promise<VehicleData[]> {
-    return this.vehicleDataModel.find().exec();
+    try {
+      return await this.vehicleDataModel
+        .findOne({ identifier: 'GLOBAL_SUMMARY' })
+        .lean<VehicleData>()
+        .exec();
+    } catch (error) {
+      this.logger.error('Failed to fetch latest vehicle metadata', error.stack);
+      throw new InternalServerErrorException('Database read operation failed');
+    }
   }
 
   async findAllMakes(): Promise<VehicleMake[]> {
-    return this.vehicleMakeModel.find().exec();
+    try {
+      return await this.vehicleMakeModel
+        .find()
+        .sort({ makeName: 1 })
+        .lean<VehicleMake[]>()
+        .exec();
+    } catch (error) {
+      this.logger.error('Failed to fetch all vehicle makes', error.stack);
+      throw new InternalServerErrorException('Database read operation failed');
+    }
   }
 
-  async getAllVehicleTypes(): Promise<(VehicleType & { makeId: string })[]> {
-    const makes = await this.vehicleMakeModel.find().exec();
+  async upsertManyMakes(makes: VehicleMake[]): Promise<void> {
+    if (!makes?.length) return;
 
-    return makes.flatMap((make) =>
-      make.vehicleTypes.map((type) => ({
-        typeId: type.typeId,
-        typeName: type.typeName,
-        makeId: make.makeId,
-      })),
-    );
+    const ops = makes.map((make) => ({
+      updateOne: {
+        filter: { makeId: make.makeId },
+        update: { $set: make },
+        upsert: true,
+      },
+    }));
+
+    try {
+      const result = await this.vehicleMakeModel.bulkWrite(ops);
+      this.logger.log(
+        `Bulk write successful: ${result.upsertedCount} created, ${result.modifiedCount} updated`,
+      );
+    } catch (error) {
+      this.logger.error('Bulk write operation failed', error.stack);
+      throw error;
+    }
   }
 
-  async upsertVehicleTypes(
-    makeId: string,
-    types: VehicleType[],
-  ): Promise<void> {
-    await this.vehicleMakeModel
-      .updateOne(
-        { makeId },
-        { $set: { vehicleTypes: types } },
-        { upsert: true },
-      )
-      .exec();
+  async upsertVehicleData(data: Partial<VehicleData>): Promise<void> {
+    try {
+      await this.vehicleDataModel
+        .updateOne(
+          { identifier: 'GLOBAL_SUMMARY' },
+          {
+            $set: {
+              ...data,
+              identifier: 'GLOBAL_SUMMARY',
+            },
+          },
+          { upsert: true },
+        )
+        .exec();
+      this.logger.log('Global vehicle metadata synchronized successfully');
+    } catch (error) {
+      this.logger.error(
+        'Failed to update global vehicle metadata',
+        error.stack,
+      );
+      throw new InternalServerErrorException('Database write operation failed');
+    }
   }
-
   async upsertVehicleMake(make: VehicleMake): Promise<void> {
-    const result = await this.vehicleMakeModel
-      .updateOne({ makeId: make.makeId }, { $set: make }, { upsert: true })
-      .exec();
-
-    console.log(
-      `Make ${make.makeName} processado:`,
-      result.upsertedCount || result.modifiedCount,
-    );
-  }
-
-  async upsertVehicleData(data: VehicleData): Promise<void> {
-    const result = await this.vehicleDataModel
-      .updateOne(
-        { totalMakes: data.totalMakes },
-        { $set: data },
-        { upsert: true },
-      )
-      .exec();
-
-    console.log('--- DEBUG VEHICLE DATA ---');
-    console.log('Resultado do DB:', JSON.stringify(result));
+    try {
+      await this.vehicleMakeModel
+        .updateOne({ makeId: make.makeId }, { $set: make }, { upsert: true })
+        .exec();
+    } catch (error) {
+      this.logger.error(
+        `Failed to process make: ${make.makeName}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        `Error saving make ${make.makeId}`,
+      );
+    }
   }
 }

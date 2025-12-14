@@ -8,17 +8,18 @@ type VehicleType {
 }
 
 type VehicleMake {
-  makeId: String!
+  makeId: ID!
   makeName: String!
   vehicleTypes: [VehicleType!]!
 }
 
 type VehiclesPayload {
   generatedAt: String!
-  totalMakes: Float!
+  totalMakes: Int!
   makes: [VehicleMake!]!
 }
 
 type Query {
+  """Retrieves the unified structure of vehicle metadata and manufacturers"""
   vehicles: VehiclesPayload!
 }

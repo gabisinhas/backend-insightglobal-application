@@ -1,12 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { parseStringPromise } from 'xml2js';
 import { XmlClient } from './xml.client';
 import { VehicleRepository } from '../database/vehicle.repository';
-import {
-  VehicleMake,
-  VehicleType,
-  VehicleData,
-} from '../database/vehicle.schema';
+import { VehicleMake, VehicleType } from '../database/vehicle.schema';
 
 interface RawMake {
   Make_ID: string[];
@@ -39,12 +39,8 @@ export class IngestionService {
       const allMakesXml = await this.xmlClient.fetchAllMakes();
       const makes: VehicleMake[] = await this.parseMakesXml(allMakesXml);
 
-      this.logger.log(`Starting loop for ${makes.length} makes...`);
-
       if (makes.length === 0) {
-        this.logger.error(
-          'WARNING: Makes list came back empty! Check the XML structure.',
-        );
+        this.logger.error('No makes found in XML structure');
         return;
       }
 
@@ -62,7 +58,6 @@ export class IngestionService {
             );
 
             make.vehicleTypes = await this.parseTypesXml(typesXml);
-
             await this.vehicleRepository.upsertVehicleMake(make);
             success = true;
           } catch (err) {
@@ -74,24 +69,22 @@ export class IngestionService {
         }
       }
 
-      const vehicleData: VehicleData = {
+      await this.vehicleRepository.upsertVehicleData({
         generatedAt: new Date().toISOString(),
         totalMakes: limitedMakes.length,
-        makes: limitedMakes,
-      };
+      });
 
-      await this.vehicleRepository.upsertVehicleData(vehicleData);
       this.logger.log('Ingestion completed successfully');
     } catch (err) {
       this.logger.error(
         'Error during full ingestion',
         err instanceof Error ? err.stack : String(err),
       );
+      throw new InternalServerErrorException('Ingestion process failed');
     }
   }
 
   private async parseMakesXml(xml: string): Promise<VehicleMake[]> {
-    // Hack para evitar o erro 'Unsafe call' do ESLint com xml2js
     const parser = parseStringPromise as (xmlStr: string) => Promise<unknown>;
     const parsed = await parser(xml);
 
@@ -102,8 +95,6 @@ export class IngestionService {
     const results = json?.Response?.Results;
     const rawMakes =
       results && results.length > 0 ? results[0].AllVehicleMakes : [];
-
-    this.logger.log(`XML parsed. Raw items found: ${rawMakes?.length || 0}`);
 
     if (!rawMakes) return [];
 
@@ -117,7 +108,6 @@ export class IngestionService {
   }
 
   private async parseTypesXml(xml: string): Promise<VehicleType[]> {
-    // Hack para evitar o erro 'Unsafe call' do ESLint com xml2js
     const parser = parseStringPromise as (xmlStr: string) => Promise<unknown>;
     const parsed = await parser(xml);
 

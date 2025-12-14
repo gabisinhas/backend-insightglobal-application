@@ -1,32 +1,12 @@
-import { ObjectType, Field } from '@nestjs/graphql';
-
-@ObjectType()
-export class VehicleType {
-  @Field()
-  typeId: string;
-
-  @Field()
-  typeName: string;
-}
-
-@ObjectType()
-export class VehicleMake {
-  @Field()
-  makeId: string;
-
-  @Field()
-  makeName: string;
-
-  @Field(() => [VehicleType])
-  vehicleTypes: VehicleType[];
-}
+import { ObjectType, Field, Int } from '@nestjs/graphql';
+import { VehicleMake } from '../database/vehicle.schema'; // Import the existing class
 
 @ObjectType()
 export class VehiclesPayload {
   @Field()
   generatedAt: string;
 
-  @Field(() => Number)
+  @Field(() => Int)
   totalMakes: number;
 
   @Field(() => [VehicleMake])
