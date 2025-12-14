@@ -8,6 +8,29 @@ This project is a backend application built with NestJS. It implements a data in
 - Ingestion Logic: During the ingestion process, the service fetches makes and types, replacing the existing dataset with the latest version to ensure data consistency.
 - API Layer: A read-only GraphQL API serves the stored data, ensuring no external overhead during client queries.
 
+## Tech Stack
+- Framework: NestJS (Node.js)
+- Language: TypeScript
+- Database: MongoDB (Mongoose)
+- API: GraphQL (Apollo)
+- Validation: Zod (Configuration)
+- Logging: Pino (Structured JSON Logs)
+
+### Engineering Documentation
+1. Ingestion Pipeline
+The service follows a Fetch-Transform-Persist pattern:
+- Fetch: Pulls raw XML from NHTSA endpoints.
+- Transform: Parses XML using xml2js and maps it to TypeScript interfaces. It combines Make data with Vehicle Type data into a single unified object.
+- Persist: Uses an upsert strategy in MongoDB to ensure the dataset is always the most recent without creating duplicates.
+
+2. Error Handling Strategy
+- Network Resilience: Implements a retry mechanism (max 3 attempts) for external XML API calls.
+- Graceful Failures: Failures in specific "Make" enrichments are logged, but do not stop the entire ingestion process.
+- Startup Validation: Configuration errors (missing .env keys) trigger immediate process exit with clear error reporting.
+
+3. Logging Strategy
+The application uses Structured JSON Logging. This allows for better observability and log aggregation in production environments (like ELK or Datadog).
+
 ## How to Run the Application
 Prerequisites
 
@@ -27,7 +50,7 @@ ensure you have a .env file with the correct variables
 ### as reference
 NODE_ENV=development
 PORT=4000
-MONGODB_URI=mongodb+srv://gabisinhas:admin123gabriela@cluster0.oln4o.mongodb.net/?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://db:yourpassword@cluster0.oln4o.mongodb.net/?retryWrites=true&w=majority
 PORT=3000
 LOG_LEVEL=info
 
@@ -67,3 +90,30 @@ query {
     }
   }
 }
+
+# Running Tests
+npm run test
+
+
+graph TD
+    A[Início do Processo] --> B{Busca Todas as Marcas <br/> API NHTSA XML}
+    B -- Falha --> C[Retry Logic - max 3x]
+    C --> B
+    B -- Sucesso --> D[Parse XML para JSON]
+    D --> E[Limitar para as primeiras 50 marcas]
+    
+    E --> F{Para cada Marca...}
+    F --> G[Busca Tipos de Veículo <br/> via MakeID XML]
+    G -- Falha --> H[Log Erro e Pula para próxima]
+    G -- Sucesso --> I[Transforma e Unifica Dados]
+    I --> J[Upsert da Marca no MongoDB]
+    J --> K{Fim da lista?}
+    
+    K -- Não --> F
+    K -- Sim --> L[Gerar Objeto Final VehicleData]
+    L --> M[Persistir Documento Consolidado]
+    M --> N[Ingestão Concluída]
+
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style N fill:#00ff00,stroke:#333,stroke-width:2px
+    style E fill:#fff4dd,stroke:#d4a017,stroke-width:2px
