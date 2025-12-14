@@ -9,6 +9,14 @@ import {
 import { PinoLogger, getLoggerToken } from 'nestjs-pino';
 import { InternalServerErrorException } from '@nestjs/common';
 
+jest.mock('../../../src/config', () => ({
+  config: {
+    XML_FETCH_CONCURRENCY: 5, // Set a valid concurrency value
+    XML_FETCH_BATCH_SIZE: 2, // Add batch size for testing
+    XML_FETCH_RETRIES: 3, // Add retries for testing
+  },
+}));
+
 describe('IngestionService', () => {
   let service: IngestionService;
   let xmlClient: XmlClient;
@@ -22,6 +30,12 @@ describe('IngestionService', () => {
   ];
 
   const mockVehicleTypes = [{ typeId: '101', typeName: 'Type1' }];
+
+  beforeAll(() => {
+    jest.spyOn(process, 'exit').mockImplementation((code?: number) => {
+      throw new Error(`process.exit: ${code}`);
+    });
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -67,9 +81,12 @@ describe('IngestionService', () => {
   });
 
   it('should ingest all vehicle data successfully', async () => {
+    console.log('Starting test: should ingest all vehicle data successfully');
+
     await service.ingestAllVehicleData();
 
-    // Use the method reference directly from the retrieved instance
+    console.log('Finished ingestion process');
+
     expect(xmlClient.fetchAllMakes).toHaveBeenCalled();
     expect(transformer.parseMakes).toHaveBeenCalled();
     expect(repository.upsertVehicleMake).toHaveBeenCalledTimes(
