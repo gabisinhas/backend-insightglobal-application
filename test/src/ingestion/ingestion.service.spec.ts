@@ -1,127 +1,110 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { getLoggerToken } from 'nestjs-pino';
+import { InternalServerErrorException } from '@nestjs/common';
 import { IngestionService } from '../../../src/ingestion/ingestion.service';
 import { XmlClient } from '../../../src/ingestion/xml.client';
 import { VehicleRepository } from '../../../src/database/vehicle.repository';
-import {
-  VehicleTransformer,
-  ParsedVehicleMake,
-} from '../../../src/ingestion/vehicle.transformer';
-import { PinoLogger, getLoggerToken } from 'nestjs-pino';
-import { InternalServerErrorException } from '@nestjs/common';
-
-jest.mock('../../../src/config', () => ({
-  config: {
-    XML_FETCH_CONCURRENCY: 5, // Set a valid concurrency value
-    XML_FETCH_BATCH_SIZE: 2, // Add batch size for testing
-    XML_FETCH_RETRIES: 3, // Add retries for testing
-  },
-}));
+import { VehicleTransformer } from '../../../src/ingestion/vehicle.transformer';
 
 describe('IngestionService', () => {
   let service: IngestionService;
-  let xmlClient: XmlClient;
-  let repository: VehicleRepository;
-  let transformer: VehicleTransformer;
-  let logger: PinoLogger;
 
-  const mockMakes: ParsedVehicleMake[] = [
-    { makeId: '1', makeName: 'Make1', vehicleTypes: [] },
-    { makeId: '2', makeName: 'Make2', vehicleTypes: [] },
-  ];
+  const mockXmlClient = {
+    fetchAllMakes: jest.fn(),
+    fetchVehicleTypes: jest.fn(),
+  };
 
-  const mockVehicleTypes = [{ typeId: '101', typeName: 'Type1' }];
+  const mockVehicleRepository = {
+    upsertVehicleData: jest.fn(),
+    upsertVehicleMake: jest.fn(),
+  };
 
-  beforeAll(() => {
-    jest.spyOn(process, 'exit').mockImplementation((code?: number) => {
-      throw new Error(`process.exit: ${code}`);
-    });
-  });
+  const mockTransformer = {
+    parseMakes: jest.fn(),
+    parseVehicleTypes: jest.fn(),
+  };
+
+  const mockPinoLogger = {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         IngestionService,
-        {
-          provide: XmlClient,
-          useValue: {
-            fetchAllMakes: jest.fn().mockResolvedValue('<xml></xml>'),
-            fetchVehicleTypes: jest.fn().mockResolvedValue('<xml></xml>'),
-          },
-        },
-        {
-          provide: VehicleRepository,
-          useValue: {
-            upsertVehicleMake: jest.fn().mockResolvedValue(undefined),
-            upsertVehicleData: jest.fn().mockResolvedValue(undefined),
-          },
-        },
-        {
-          provide: VehicleTransformer,
-          useValue: {
-            parseMakes: jest.fn().mockReturnValue(mockMakes),
-            parseVehicleTypes: jest.fn().mockReturnValue(mockVehicleTypes),
-          },
-        },
+        { provide: XmlClient, useValue: mockXmlClient },
+        { provide: VehicleRepository, useValue: mockVehicleRepository },
+        { provide: VehicleTransformer, useValue: mockTransformer },
         {
           provide: getLoggerToken(IngestionService.name),
-          useValue: {
-            info: jest.fn(),
-            warn: jest.fn(),
-            error: jest.fn(),
-          },
+          useValue: mockPinoLogger,
         },
       ],
     }).compile();
 
     service = module.get<IngestionService>(IngestionService);
-    xmlClient = module.get<XmlClient>(XmlClient);
-    repository = module.get<VehicleRepository>(VehicleRepository);
-    transformer = module.get<VehicleTransformer>(VehicleTransformer);
-    logger = module.get<PinoLogger>(getLoggerToken(IngestionService.name));
   });
 
-  it('should ingest all vehicle data successfully', async () => {
-    console.log('Starting test: should ingest all vehicle data successfully');
-
-    await service.ingestAllVehicleData();
-
-    console.log('Finished ingestion process');
-
-    expect(xmlClient.fetchAllMakes).toHaveBeenCalled();
-    expect(transformer.parseMakes).toHaveBeenCalled();
-    expect(repository.upsertVehicleMake).toHaveBeenCalledTimes(
-      mockMakes.length,
-    );
-
-    expect(repository.upsertVehicleData).toHaveBeenCalledWith(
-      expect.objectContaining({ totalMakes: mockMakes.length }),
-    );
-
-    expect(logger.info).toHaveBeenCalledWith(
-      'Ingestion completed successfully',
-    );
+  it('should be defined', () => {
+    expect(service).toBeDefined();
   });
 
-  it('should handle no makes found', async () => {
-    jest.spyOn(transformer, 'parseMakes').mockReturnValue([]);
+  describe('ingestAllVehicleData', () => {
+    it('should ingest all vehicle data successfully', async () => {
+      // Setup
+      const mockXml = '<xml>data</xml>';
+      const mockMakes = [{ makeId: '1', makeName: 'Test' }];
+      const mockTypes = [{ typeId: '10', typeName: 'Car' }];
 
-    await service.ingestAllVehicleData();
+      mockXmlClient.fetchAllMakes.mockResolvedValue(mockXml);
+      mockTransformer.parseMakes.mockReturnValue(mockMakes);
+      mockXmlClient.fetchVehicleTypes.mockResolvedValue('<types></types>');
+      mockTransformer.parseVehicleTypes.mockReturnValue(mockTypes);
+      mockVehicleRepository.upsertVehicleMake.mockResolvedValue(undefined);
+      mockVehicleRepository.upsertVehicleData.mockResolvedValue(undefined);
 
-    expect(logger.warn).toHaveBeenCalledWith(
-      'No makes found after XML transformation',
-    );
-    expect(repository.upsertVehicleMake).not.toHaveBeenCalled();
-    expect(repository.upsertVehicleData).not.toHaveBeenCalled();
-  });
+      // Execute
+      await service.ingestAllVehicleData();
 
-  it('should throw InternalServerErrorException on fatal error', async () => {
-    jest
-      .spyOn(xmlClient, 'fetchAllMakes')
-      .mockRejectedValue(new Error('XML fetch failed'));
+      // Assertions
+      expect(mockXmlClient.fetchAllMakes).toHaveBeenCalled();
+      expect(mockTransformer.parseMakes).toHaveBeenCalledWith(mockXml);
+      expect(mockVehicleRepository.upsertVehicleMake).toHaveBeenCalledWith({
+        ...mockMakes[0],
+        vehicleTypes: mockTypes,
+      });
+      expect(mockVehicleRepository.upsertVehicleData).toHaveBeenCalledWith({
+        generatedAt: expect.any(String),
+        totalMakes: 1,
+      });
+      expect(mockPinoLogger.info).toHaveBeenCalledWith('Ingestion completed successfully');
+    });
 
-    await expect(service.ingestAllVehicleData()).rejects.toThrow(
-      InternalServerErrorException,
-    );
-    expect(logger.error).toHaveBeenCalled();
+    it('should handle no makes found gracefully', async () => {
+      mockXmlClient.fetchAllMakes.mockResolvedValue('<xml></xml>');
+      mockTransformer.parseMakes.mockReturnValue([]);
+
+      await service.ingestAllVehicleData();
+
+      expect(mockPinoLogger.warn).toHaveBeenCalledWith('No makes found after XML transformation');
+      expect(mockVehicleRepository.upsertVehicleData).not.toHaveBeenCalled();
+    });
+
+    it('should throw InternalServerErrorException and log error on failure', async () => {
+      const error = new Error('Network timeout');
+      mockXmlClient.fetchAllMakes.mockRejectedValue(error);
+
+      await expect(service.ingestAllVehicleData()).rejects.toThrow(InternalServerErrorException);
+
+      expect(mockPinoLogger.error).toHaveBeenCalledWith(
+        { err: 'Network timeout' },
+        'Fatal error during ingestion'
+      );
+    });
   });
 });

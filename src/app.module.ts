@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -8,6 +8,7 @@ import { IngestionModule } from './ingestion/ingestion.module';
 import { HealthModule } from './health/health.module';
 import { GraphqlModule } from './graphql/graphql.module';
 import { DatabaseModule } from './database/database.module';
+import { LoggerService } from './logging/logger.service';
 
 @Module({
   imports: [
@@ -50,5 +51,17 @@ import { DatabaseModule } from './database/database.module';
     GraphqlModule,
     HealthModule,
   ],
+  providers: [LoggerService],
+  exports: [LoggerService],
 })
-export class AppModule {}
+export class AppModule implements OnModuleInit, OnModuleDestroy {
+  constructor(private readonly logger: LoggerService) {}
+
+  onModuleInit() {
+    this.logger.info('AppModule: Application has started');
+  }
+
+  onModuleDestroy() {
+    this.logger.info('AppModule: Application is shutting down');
+  }
+}

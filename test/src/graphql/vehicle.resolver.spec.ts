@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { VehicleResolver } from '../../../src/graphql/vehicle.resolver';
 import { VehicleRepository } from '../../../src/database/vehicle.repository';
+import { LoggerService } from '../../../src/logging/logger.service';
 
 describe('VehicleResolver', () => {
   let resolver: VehicleResolver;
@@ -19,6 +20,14 @@ describe('VehicleResolver', () => {
     { makeId: 441, makeName: 'TESLA' },
   ];
 
+  const mockLoggerService = {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    verbose: jest.fn(),
+  };
+
   beforeEach(async () => {
     getLatestDataMock = jest.fn().mockResolvedValue(mockVehicleData);
     findAllMakesMock = jest.fn().mockResolvedValue(mockMakes);
@@ -32,6 +41,10 @@ describe('VehicleResolver', () => {
             getLatestData: getLatestDataMock,
             findAllMakes: findAllMakesMock,
           },
+        },
+        {
+          provide: LoggerService,
+          useValue: mockLoggerService,
         },
       ],
     }).compile();
