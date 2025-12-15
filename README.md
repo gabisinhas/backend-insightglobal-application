@@ -38,19 +38,30 @@ The Backend-InsightGlobal-Application is designed to streamline the ingestion an
 The service follows a Fetch-Transform-Persist pattern:
 - **Fetch**: Pulls raw XML from NHTSA endpoints.
 - **Transform**: Parses XML using `xml2js` and maps it to TypeScript interfaces. It combines Make data with Vehicle Type data into a single unified object.
-- **Persist**: Uses a split-storage strategy. Individual makes are stored in the `VehicleMake` collection to avoid MongoDB's 16MB document limit, while global metadata is stored in `VehicleData`.
 
-### 2. Error Handling Strategy
+---
+
+### 2. Triggering Ingestion
+
+The ingestion process will only start after making a call to the following API endpoint:
+
+```
+POST http://localhost:4000/ingestion
+```
+
+Ensure the server is running before making the request.
+
+### 3. Error Handling Strategy
 
 - **Network Resilience**: Implements a retry mechanism (max 3 attempts) for external XML API calls.
 - **Graceful Failures**: Failures in specific "Make" enrichments are logged, but do not stop the entire ingestion process.
 - **Startup Validation**: Configuration errors (missing `.env` keys) trigger immediate process exit with clear error reporting.
 
-### 3. Logging Strategy
+### 4. Logging Strategy
 
 The application uses Structured JSON Logging. This allows for better observability and log aggregation in production environments (like ELK or Datadog).
 
-### 4. CI Pipeline
+### 5. CI Pipeline
 
 The project includes a GitHub Actions workflow that triggers on every push or PR to `main`:
 - **Linting**: Ensures code follows the established style guide.

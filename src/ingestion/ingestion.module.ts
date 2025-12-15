@@ -4,6 +4,7 @@ import { XmlClient } from './xml.client';
 import { DatabaseModule } from '../database/database.module';
 import { VehicleTransformer } from './vehicle.transformer';
 import { SchedulerService } from './scheduler.service';
+import { LoggerService } from '../logging/logger.service';
 import { IngestionController } from './ingestion.controller';
 
 @Module({
@@ -14,6 +15,7 @@ import { IngestionController } from './ingestion.controller';
     XmlClient,
     VehicleTransformer,
     SchedulerService,
+    LoggerService,
   ],
   exports: [IngestionService],
 })

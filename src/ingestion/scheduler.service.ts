@@ -8,7 +8,7 @@ export class SchedulerService implements OnModuleInit {
 
   constructor(private readonly ingestionService: IngestionService) {}
 
-  // Método auxiliar para evitar repetição de try/catch
+  // Helper method to avoid repetition of try/catch
   private async runIngestion(description: string) {
     this.logger.log(`${description} ingestion started...`);
     try {
@@ -22,13 +22,13 @@ export class SchedulerService implements OnModuleInit {
     }
   }
 
-  // Ingestão inicial ao subir a aplicação
-  async onModuleInit() {
-    await this.runIngestion('Initial');
+  // Removed initial ingestion on application startup
+  onModuleInit() {
+    this.logger.log('SchedulerService initialized');
   }
 
-  // Ingestão diária agendada
-  // Pode parametrizar o cron via ENV: INGESTION_CRON="0 2 * * *"
+  // Scheduled daily ingestion
+  // You can parameterize the cron via ENV: INGESTION_CRON="0 2 * * *"
   @Cron(process.env.INGESTION_CRON || '0 2 * * *')
   async handleDailyIngestion() {
     await this.runIngestion('Scheduled');

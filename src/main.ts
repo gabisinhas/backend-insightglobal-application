@@ -8,11 +8,14 @@ async function bootstrap() {
   app.enableCors();
   app.enableShutdownHooks();
 
-  const port = config?.PORT ?? 4001;
+  const port = config?.PORT ?? 4000;
   await app.listen(port);
 
-  console.log(`Backend running on port ${port}`);
-  console.log(`GraphQL available at http://localhost:${port}/graphql`);
+  console.log(`Application is running on: http://localhost:${port}`);
+  console.log(
+    `GraphQL playground available at: http://localhost:${port}/graphql`,
+  );
+  console.log('PORT', port);
 }
 
 bootstrap().catch((err) => {

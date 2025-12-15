@@ -39,8 +39,9 @@ export class XmlClient {
           );
         }
 
-        await new Promise((resolve) =>
-          setTimeout(resolve, config?.XML_FETCH_RETRY_DELAY_MS ?? 1000), // Added null check
+        await new Promise(
+          (resolve) =>
+            setTimeout(resolve, config?.XML_FETCH_RETRY_DELAY_MS ?? 1000), // Added null check
         );
       }
     }

@@ -1,8 +1,5 @@
-import {
-  Injectable,
-  Logger,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { LoggerService } from '../logging/logger.service';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
@@ -14,15 +11,17 @@ import {
 
 @Injectable()
 export class VehicleRepository {
-  private readonly logger = new Logger(VehicleRepository.name);
-
   constructor(
     @InjectModel(VehicleDataEntity.name)
     private readonly vehicleDataModel: Model<VehicleDataDocument>,
 
     @InjectModel(VehicleMake.name)
     private readonly vehicleMakeModel: Model<VehicleMakeDocument>,
+
+    private readonly logger: LoggerService,
   ) {}
+
+  // ...existing code...
 
   async getLatestData(): Promise<VehicleDataEntity | null> {
     try {
@@ -50,7 +49,9 @@ export class VehicleRepository {
         )
         .exec();
 
-      this.logger.log('Global vehicle metadata synchronized successfully');
+      this.logger.log({
+        msg: 'Global vehicle metadata synchronized successfully',
+      });
     } catch (error) {
       this.handleError('Failed to update global vehicle metadata', error);
     }
@@ -91,19 +92,21 @@ export class VehicleRepository {
 
     try {
       const result = await this.vehicleMakeModel.bulkWrite(ops);
-      this.logger.log(
-        `Bulk write successful: ${result.upsertedCount} created, ${result.modifiedCount} updated`,
-      );
+      this.logger.log({
+        msg: 'Bulk write successful',
+        upsertedCount: result.upsertedCount,
+        modifiedCount: result.modifiedCount,
+      });
     } catch (error) {
       const stack = error instanceof Error ? error.stack : 'Unknown error';
-      this.logger.error('Bulk write operation failed', stack);
+      this.logger.error({ msg: 'Bulk write operation failed', stack });
       throw error;
     }
   }
 
   private handleError(context: string, error: unknown): never {
     const stack = error instanceof Error ? error.stack : 'Unknown error';
-    this.logger.error(context, stack);
+    this.logger.error({ msg: context, stack });
     throw new InternalServerErrorException(
       `${context}: Database operation failed`,
     );

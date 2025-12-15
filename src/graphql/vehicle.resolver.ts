@@ -32,10 +32,10 @@ export class VehicleResolver {
   }
 
   async resolveVehicleQuery(args: Record<string, unknown>) {
-    this.logger.info(
-      'VehicleResolver: Resolving vehicle query',
-      JSON.stringify(args),
-    );
+    this.logger.info({
+      message: 'VehicleResolver: Resolving vehicle query',
+      args: JSON.stringify(args),
+    });
     try {
       const [data, makes] = await Promise.all([
         this.vehicleRepository.getLatestData(),
@@ -58,10 +58,10 @@ export class VehicleResolver {
       const errorMessage =
         error instanceof Error ? error.stack : 'Unknown error';
 
-      this.logger.error(
-        'VehicleResolver: Failed to resolve vehicle query',
-        errorMessage,
-      );
+      this.logger.error({
+        message: 'VehicleResolver: Failed to resolve vehicle query',
+        errorMessage: errorMessage || 'Unknown error',
+      });
       throw error;
     }
   }

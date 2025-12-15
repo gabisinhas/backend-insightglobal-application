@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
 import { ensureArray } from '../utils/array';
-import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { LoggerService } from '../logging/logger.service';
 import {
   RawMake,
   ParsedVehicleMake,
@@ -24,10 +24,7 @@ interface XmlResponse<T> {
 export class VehicleTransformer {
   private readonly parser = new XMLParser({ ignoreAttributes: false });
 
-  constructor(
-    @InjectPinoLogger(VehicleTransformer.name)
-    private readonly logger: PinoLogger,
-  ) {}
+  constructor(private readonly logger: LoggerService) {}
 
   parseMakes(xml: string): ParsedVehicleMake[] {
     const parsed = this.parser.parse(xml) as XmlResponse<{
@@ -64,7 +61,7 @@ export class VehicleTransformer {
           typeName: String(t.VehicleTypeName),
         };
       } else {
-        this.logger.warn({ data: t }, 'Invalid vehicle type data');
+        this.logger.warn({ msg: 'Invalid vehicle type data', data: t });
         throw new Error('Invalid vehicle type data');
       }
     });

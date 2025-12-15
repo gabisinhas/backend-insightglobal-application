@@ -14,15 +14,18 @@ export class HealthController {
         uptime: process.uptime(),
         timestamp: new Date().toISOString(),
       };
-      this.logger.info(
-        'HealthController: Health check passed',
-        JSON.stringify(healthStatus),
-      );
+      this.logger.info({
+        message: 'HealthController: Health check passed',
+        healthStatus: JSON.stringify(healthStatus),
+      });
       return healthStatus;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.stack : String(error);
 
-      this.logger.error('HealthController: Health check failed', errorMessage);
+      this.logger.error({
+        message: 'HealthController: Health check failed',
+        errorMessage: errorMessage || 'Unknown error',
+      });
       throw error;
     }
   }
