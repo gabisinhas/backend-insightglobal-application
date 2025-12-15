@@ -82,7 +82,9 @@ describe('IngestionService', () => {
         generatedAt: expect.any(String),
         totalMakes: 1,
       });
-      expect(mockPinoLogger.info).toHaveBeenCalledWith('Ingestion completed successfully');
+      expect(mockPinoLogger.info).toHaveBeenCalledWith(
+        'Ingestion completed successfully',
+      );
     });
 
     it('should handle no makes found gracefully', async () => {
@@ -91,7 +93,9 @@ describe('IngestionService', () => {
 
       await service.ingestAllVehicleData();
 
-      expect(mockPinoLogger.warn).toHaveBeenCalledWith('No makes found after XML transformation');
+      expect(mockPinoLogger.warn).toHaveBeenCalledWith(
+        'No makes found after XML transformation',
+      );
       expect(mockVehicleRepository.upsertVehicleData).not.toHaveBeenCalled();
     });
 
@@ -99,11 +103,13 @@ describe('IngestionService', () => {
       const error = new Error('Network timeout');
       mockXmlClient.fetchAllMakes.mockRejectedValue(error);
 
-      await expect(service.ingestAllVehicleData()).rejects.toThrow(InternalServerErrorException);
+      await expect(service.ingestAllVehicleData()).rejects.toThrow(
+        InternalServerErrorException,
+      );
 
       expect(mockPinoLogger.error).toHaveBeenCalledWith(
         { err: 'Network timeout' },
-        'Fatal error during ingestion'
+        'Fatal error during ingestion',
       );
     });
   });
