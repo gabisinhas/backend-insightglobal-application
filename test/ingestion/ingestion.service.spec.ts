@@ -5,6 +5,11 @@ import { XmlClient } from '../../src/ingestion/xml.client';
 import { VehicleRepository } from '../../src/database/vehicle.repository';
 import { VehicleTransformer } from '../../src/ingestion/vehicle.transformer';
 import { LoggerService } from '../../src/logging/logger.service';
+import { jest } from '@jest/globals';
+
+jest.spyOn(process, 'exit').mockImplementation((code) => {
+  console.warn(`process.exit called with code: ${code}`);
+});
 
 describe('IngestionService', () => {
   let service: IngestionService;

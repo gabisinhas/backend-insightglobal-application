@@ -8,10 +8,10 @@ import pLimit from 'p-limit';
 export class XmlClient {
   private readonly logger = pino({
     name: 'XmlClient',
-    level: config?.LOG_LEVEL ?? 'info', // Added null check
+    level: config?.LOG_LEVEL ?? 'info',
   });
   private readonly concurrencyLimiter = pLimit(
-    config?.XML_FETCH_CONCURRENCY ?? 1, // Added null check
+    config?.XML_FETCH_CONCURRENCY ?? 1,
   );
 
   private async fetchWithRetries(
@@ -25,7 +25,7 @@ export class XmlClient {
         attempt++;
         this.logger.debug({ url, attempt }, 'Fetching XML');
         const response = await axios.get<string>(url, {
-          timeout: config?.XML_FETCH_TIMEOUT ?? 1000, // Added null check
+          timeout: config?.XML_FETCH_TIMEOUT ?? 1000,
         });
         return response.data;
       } catch (err) {

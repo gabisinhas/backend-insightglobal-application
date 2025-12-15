@@ -14,26 +14,6 @@ The Backend-InsightGlobal-Application provides a GraphQL API to access vehicle d
   - **Arguments**: None
   - **Returns**: A list of vehicles with metadata.
 
-- **vehicleById**: Fetches a specific vehicle by its identifier.
-  - **Arguments**:
-    - `id` (String): The unique identifier of the vehicle.
-  - **Returns**: A single vehicle object.
-
-### Mutations
-
-- **addVehicle**: Adds a new vehicle to the database.
-  - **Arguments**:
-    - `makeName` (String): The name of the vehicle make.
-    - `typeName` (String): The name of the vehicle type.
-  - **Returns**: The newly created vehicle object.
-
-- **updateVehicle**: Updates an existing vehicle's details.
-  - **Arguments**:
-    - `id` (String): The unique identifier of the vehicle.
-    - `makeName` (String): The updated name of the vehicle make.
-    - `typeName` (String): The updated name of the vehicle type.
-  - **Returns**: The updated vehicle object.
-
 ---
 
 ## Example Queries
@@ -57,50 +37,13 @@ query {
 }
 ```
 
-### Fetch Vehicle by ID
-```graphql
-query {
-  vehicleById(id: "12345") {
-    identifier
-    makeName
-    typeName
-  }
-}
-```
-
-### Add a New Vehicle
-```graphql
-mutation {
-  addVehicle(makeName: "Toyota", typeName: "SUV") {
-    identifier
-    makeName
-    typeName
-  }
-}
-```
-
-### Update an Existing Vehicle
-```graphql
-mutation {
-  updateVehicle(id: "12345", makeName: "Honda", typeName: "Sedan") {
-    identifier
-    makeName
-    typeName
-  }
-}
-```
-
 ---
 
 ## Error Handling
 
-- **Invalid ID**:
-  - **Message**: `Vehicle not found.`
-  - **Cause**: The provided `id` does not exist in the database.
-
-- **Validation Errors**:
-  - **Message**: `Invalid input.`
-  - **Cause**: Missing or incorrect arguments in the query/mutation.
+- **No Data Found**:
+  - **Message**: `No vehicle data available.`
+  - **Cause**: The database does not contain any vehicle data.
 
 ---
 
@@ -112,17 +55,17 @@ mutation {
 2. **Access GraphQL Playground**:
    - Open [http://localhost:4000/graphql](http://localhost:4000/graphql) in your browser.
 
-3. **Run Queries/Mutations**:
+3. **Run Queries**:
    - Use the examples provided above to interact with the API.
 
 4. **Use Postman (Optional)**:
    - Set the request type to `POST`.
    - URL: `http://localhost:4000/graphql`
-   - Body: Use raw JSON with the GraphQL query/mutation.
+   - Body: Use raw JSON with the GraphQL query.
 
 ---
 
 ## Notes
 
-- The API is read-only for queries and supports basic CRUD operations for vehicles.
+- The API is read-only for queries.
 - Ensure the MongoDB database is running and properly configured before testing the API.

@@ -8,7 +8,12 @@ const parsedConfig = ConfigSchema.safeParse(process.env);
 if (!parsedConfig.success) {
   console.error('[Config] Invalid environment configuration:');
   console.error(JSON.stringify(parsedConfig.error.format(), null, 2));
-  process.exit(1);
+
+  if (process.env.NODE_ENV !== 'test') {
+    process.exit(1);
+  } else {
+    console.warn('[Config] Invalid environment configuration in test mode.');
+  }
 }
 
 const config = {

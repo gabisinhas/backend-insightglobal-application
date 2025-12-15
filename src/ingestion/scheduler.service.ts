@@ -8,7 +8,6 @@ export class SchedulerService implements OnModuleInit {
 
   constructor(private readonly ingestionService: IngestionService) {}
 
-  // Helper method to avoid repetition of try/catch
   private async runIngestion(description: string) {
     this.logger.log(`${description} ingestion started...`);
     try {

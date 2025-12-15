@@ -21,8 +21,6 @@ export class VehicleRepository {
     private readonly logger: LoggerService,
   ) {}
 
-  // ...existing code...
-
   async getLatestData(): Promise<VehicleDataEntity | null> {
     try {
       return await this.vehicleDataModel

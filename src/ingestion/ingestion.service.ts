@@ -8,7 +8,6 @@ import pLimit from 'p-limit';
 
 @Injectable()
 export class IngestionService {
-  // Safe default: 2 concurrent requests if config is missing
   private readonly concurrencyLimiter = pLimit(
     config?.XML_FETCH_CONCURRENCY ?? 2,
   );

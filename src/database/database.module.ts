@@ -7,8 +7,8 @@ import {
   VehicleDataSchema,
 } from './vehicle.schema';
 import { VehicleRepository } from './vehicle.repository';
-import { LoggingModule } from '../logging/logging.module'; // Import LoggingModule
-import { DataSeeder } from './data.seeder'; // Import DataSeeder
+import { LoggingModule } from '../logging/logging.module';
+import { DataSeeder } from './data.seeder';
 
 @Module({
   imports: [
@@ -22,9 +22,9 @@ import { DataSeeder } from './data.seeder'; // Import DataSeeder
         schema: VehicleDataSchema,
       },
     ]),
-    LoggingModule, // Add LoggingModule to imports
+    LoggingModule,
   ],
-  providers: [VehicleRepository, DataSeeder], // Add DataSeeder to providers
+  providers: [VehicleRepository, DataSeeder],
   exports: [VehicleRepository],
 })
 export class DatabaseModule {}
