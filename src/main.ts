@@ -8,7 +8,7 @@ async function bootstrap() {
   app.enableCors();
   app.enableShutdownHooks();
 
-  const port = config.PORT || 4001;
+  const port = config?.PORT ?? 4001;
   await app.listen(port);
 
   console.log(`Backend running on port ${port}`);

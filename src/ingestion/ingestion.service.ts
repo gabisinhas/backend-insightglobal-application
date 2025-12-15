@@ -8,7 +8,9 @@ import pLimit from 'p-limit';
 
 @Injectable()
 export class IngestionService {
-  private readonly concurrencyLimiter = pLimit(config.XML_FETCH_CONCURRENCY);
+  private readonly concurrencyLimiter = pLimit(
+    config?.XML_FETCH_CONCURRENCY ?? 1,
+  );
 
   constructor(
     private readonly xmlClient: XmlClient,
@@ -29,10 +31,8 @@ export class IngestionService {
         return;
       }
 
-      const batches = this.createBatches(
-        parsedMakes,
-        config.XML_FETCH_BATCH_SIZE,
-      );
+      const batchSize = config?.XML_FETCH_BATCH_SIZE ?? 1;
+      const batches = this.createBatches(parsedMakes, batchSize);
 
       for (const [index, batch] of batches.entries()) {
         this.logger.info(
@@ -64,7 +64,7 @@ export class IngestionService {
     make: ParsedVehicleMake,
   ): Promise<void> => {
     let attempt = 0;
-    while (attempt < config.XML_FETCH_RETRIES) {
+    while (attempt < (config?.XML_FETCH_RETRIES ?? 1)) {
       attempt++;
       try {
         const typesXml = await this.xmlClient.fetchVehicleTypes(
@@ -87,7 +87,7 @@ export class IngestionService {
           'Failed to ingest make',
         );
 
-        if (attempt >= config.XML_FETCH_RETRIES) {
+        if (attempt >= (config?.XML_FETCH_RETRIES ?? 1)) {
           this.logger.warn({ makeId: make.makeId }, 'Giving up on this make');
           return;
         }
