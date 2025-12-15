@@ -18,6 +18,10 @@ export class XmlClient {
     url: string,
     retries: number,
   ): Promise<string> {
+    if (!url) {
+      throw new Error('URL must be a valid string');
+    }
+
     let attempt = 0;
 
     while (attempt <= retries) {
@@ -39,9 +43,8 @@ export class XmlClient {
           );
         }
 
-        await new Promise(
-          (resolve) =>
-            setTimeout(resolve, config?.XML_FETCH_RETRY_DELAY_MS ?? 1000), // Added null check
+        await new Promise((resolve) =>
+          setTimeout(resolve, config?.XML_FETCH_RETRY_DELAY_MS ?? 1000),
         );
       }
     }
@@ -50,9 +53,16 @@ export class XmlClient {
   }
 
   async fetchAllMakes(): Promise<string> {
-    if (!config) {
-      throw new Error('Configuration is not defined');
+    if (!config?.GET_ALL_MAKES_URL) {
+      throw new Error('GET_ALL_MAKES_URL must be defined in the configuration');
     }
+
+    if (typeof config.XML_FETCH_RETRIES !== 'number') {
+      throw new Error(
+        'XML_FETCH_RETRIES must be a valid number in the configuration',
+      );
+    }
+
     return this.fetchWithRetries(
       config.GET_ALL_MAKES_URL,
       config.XML_FETCH_RETRIES,
@@ -60,12 +70,17 @@ export class XmlClient {
   }
 
   async fetchVehicleTypes(makeId: number): Promise<string> {
+    if (makeId === undefined || makeId === null) {
+      throw new Error('makeId must be a valid number');
+    }
+
     if (!config) {
       throw new Error('Configuration is not defined');
     }
     const url = `${config.GET_VEHICLE_TYPES_URL}/${makeId}?format=xml`;
-    return this.concurrencyLimiter(() =>
-      this.fetchWithRetries(url, config.XML_FETCH_RETRIES),
-    );
+
+    const retries = config.XML_FETCH_RETRIES ?? 3;
+
+    return this.concurrencyLimiter(() => this.fetchWithRetries(url, retries));
   }
 }
