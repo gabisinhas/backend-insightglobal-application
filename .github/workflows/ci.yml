@@ -51,10 +51,12 @@ jobs:
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         port: 22
+        timeout: 30m
+        command_timeout: 30m
         script: |
           export PATH=$PATH:/usr/bin:/usr/local/bin
           cd /home/ubuntu/backend-insightglobal-application
           git pull origin main
-          npm ci
+          npm ci --legacy-peer-deps
           npm run build
           pm2 restart backend-app || pm2 start dist/main.js --name backend-app
