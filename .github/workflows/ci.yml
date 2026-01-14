@@ -48,12 +48,13 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
+          username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           script: |
-            cd /home/ec2-user/backend-insightglobal-application
+            export PATH=$PATH:/usr/bin:/usr/local/bin
+            cd /home/ubuntu/backend-insightglobal-application
             git pull origin main
-            npm install
+            npm ci
             npm run build
-            pm2 restart all
+            pm2 restart all || pm2 start dist/main.js --name backend-app
