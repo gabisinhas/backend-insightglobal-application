@@ -44,4 +44,4 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/backend-insightglobal-application
-            pm2 restart backend-app || pm2 start dist/main.js --name backend-app
+            pm2 restart backend-app || pm2 start "npm -- start" --name backend-app
