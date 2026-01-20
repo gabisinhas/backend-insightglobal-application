@@ -14,14 +14,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build and push image
         run: |
           docker build -t ghcr.io/${{ github.repository }}:latest .
@@ -30,7 +22,7 @@ jobs:
       - name: Deploy on EC2 via SSM
         run: |
           aws ssm send-command \
-            --region sa-east-1 \
-            --instance-ids i-xxxxxxxx \
+            --region ${{ secrets.AWS_REGION }} \
+            --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
             --document-name "AWS-RunShellScript" \
             --parameters commands="cd /home/appuser && docker compose pull && docker compose up -d"
