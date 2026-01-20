@@ -1,23 +1,11 @@
-version: '3.8'
+version: "3.8"
 
 services:
   api:
-    build: .
+    image: ghcr.io/SEU_USUARIO/vehicle-ingestion-api:latest
     container_name: vehicle-ingestion-api
+    restart: always
     ports:
-      - "${PORT}:${PORT}"
+      - "3000:3000"
     env_file:
       - .env
-    depends_on:
-      - mongodb
-
-  mongodb:
-    image: mongo:latest
-    container_name: vehicle-mongodb
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-
-volumes:
-  mongo_data:
