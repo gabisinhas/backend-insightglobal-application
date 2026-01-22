@@ -2,21 +2,10 @@ version: "3.8"
 
 services:
   api:
-    image: ghcr.io/gabisinhas/vehicle-ingestion-api:latest
-    container_name: vehicle-ingestion-api
+    image: ghcr.io/gabisinhas/backend-insightglobal-application:latest
+    container_name: backend-api
     restart: always
     ports:
       - "3000:3000"
     env_file:
       - .env
-    networks:
-      - app-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-networks:
-  app-network:
-    driver: bridge

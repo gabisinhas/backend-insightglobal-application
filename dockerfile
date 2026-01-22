@@ -12,12 +12,19 @@ RUN npm run build
 # ---------- production stage ----------
 FROM node:20-alpine
 
+ENV NODE_ENV=production
+
 WORKDIR /app
 
+# Create non-root user
+RUN addgroup -S app && adduser -S app -G app
+
 COPY package*.json ./
-RUN npm ci --omit=dev --legacy-peer-deps
+RUN npm ci --omit=dev --legacy-peer-deps && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
+
+USER app
 
 EXPOSE 3000
 

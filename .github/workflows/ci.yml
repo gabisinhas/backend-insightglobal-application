@@ -2,7 +2,7 @@ name: Deploy API
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   deploy:
@@ -11,10 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Login GHCR
+      - name: Login GHCR (runner)
         run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u gabisinhas --password-stdin
 
-      - name: Build & Push
+      - name: Build & Push image
         run: |
           docker build -t ghcr.io/gabisinhas/backend-insightglobal-application:latest .
           docker push ghcr.io/gabisinhas/backend-insightglobal-application:latest
@@ -26,6 +26,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd app
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u gabisinhas --password-stdin
+            cd /home/ubuntu/backend
             docker compose pull
-            docker compose up -d
+            docker compose up -d --remove-orphans
