@@ -17,7 +17,8 @@ import { LoggerService } from '../logging/logger.service';
     ]),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
-      autoSchemaFile: join(process.cwd(), 'dist/schema.gql'),
+      //autoSchemaFile: join(process.cwd(), 'dist/schema.gql'),
+      autoSchemaFile: true, // gera apenas na memória
       playground: process.env.NODE_ENV !== 'production',
     }),
   ],
