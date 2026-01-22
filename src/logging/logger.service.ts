@@ -10,14 +10,18 @@ export class LoggerService implements NestLoggerService {
   private readonly logger: PinoLogger;
 
   constructor() {
-    this.logger = pino({
-      transport: {
-        target: 'pino-pretty',
-        options: {
-          colorize: true,
-        },
-      },
-    });
+    const isDev = process.env.NODE_ENV !== 'production';
+
+    this.logger = pino(
+      isDev
+        ? {
+            transport: {
+              target: 'pino-pretty',
+              options: { colorize: true },
+            },
+          }
+        : {} // produção usa JSON puro
+    );
   }
 
   private logInternal(
