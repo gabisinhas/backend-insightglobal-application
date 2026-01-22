@@ -26,6 +26,6 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd /home/ubuntu/apps/backend
+            cd ~/apps/backend
             docker compose pull
-            docker compose up -d --remove-orphans
+            docker compose up -d
