@@ -4,7 +4,7 @@ services:
   api:
     image: ghcr.io/gabisinhas/vehicle-ingestion-api:latest
     container_name: vehicle-ingestion-api
-    restart: unless-stopped
+    restart: always
     ports:
       - "3000:3000"
     env_file:

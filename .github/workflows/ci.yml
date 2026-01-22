@@ -1,28 +1,31 @@
-name: Deploy NestJS Docker
+name: Deploy API
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: read
-      packages: write
-
     steps:
       - uses: actions/checkout@v4
-      - name: Build and push image
-        run: |
-          docker build -t ghcr.io/${{ github.repository }}:latest .
-          docker push ghcr.io/${{ github.repository }}:latest
 
-      - name: Deploy on EC2 via SSM
+      - name: Login GHCR
+        run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u gabisinhas --password-stdin
+
+      - name: Build & Push
         run: |
-          aws ssm send-command \
-            --region ${{ secrets.AWS_REGION }} \
-            --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
-            --document-name "AWS-RunShellScript" \
-            --parameters commands="cd /home/appuser && docker compose pull && docker compose up -d"
+          docker build -t ghcr.io/gabisinhas/backend-insightglobal-application:latest .
+          docker push ghcr.io/gabisinhas/backend-insightglobal-application:latest
+
+      - name: Deploy on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd app
+            docker compose pull
+            docker compose up -d
