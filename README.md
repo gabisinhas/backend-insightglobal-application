@@ -15,7 +15,8 @@ The Backend-InsightGlobal-Application is designed to streamline the ingestion an
 - **Data Persistence**: Uses MongoDB to store transformed vehicle data with optimized indexing.
 - **Ingestion Logic**: During the ingestion process, the service fetches makes and types, performing an upsert to ensure the dataset is always up to date and consistent.
 - **API Layer**: A read-only GraphQL API serves the stored data, ensuring high performance and type safety for client queries.
-- **CI/CD**: Integrated GitHub Actions pipeline for automated linting, testing, and containerization.
+- **CI/CD**: Integrated GitHub Actions pipeline for automated linting, testing, containerization, and deployment.
+- **Deployment**: Runs on AWS EC2 with Docker and Docker Compose.
 
 ---
 
@@ -28,6 +29,7 @@ The Backend-InsightGlobal-Application is designed to streamline the ingestion an
 - **Validation**: Zod (Configuration validation)
 - **Logging**: Pino (Structured JSON Logs)
 - **CI**: GitHub Actions
+- **Infrastructure**: AWS EC2, Docker, Docker Compose
 
 ---
 
@@ -35,9 +37,9 @@ The Backend-InsightGlobal-Application is designed to streamline the ingestion an
 
 ### 1. Ingestion Pipeline
 
-The service follows a Fetch-Transform-Persist pattern:
-- **Fetch**: Pulls raw XML from NHTSA endpoints.
-- **Transform**: Parses XML using `xml2js` and maps it to TypeScript interfaces. It combines Make data with Vehicle Type data into a single unified object.
+The service follows a Fetch-Transform-Persist pattern:  
+- **Fetch**: Pulls raw XML from NHTSA endpoints.  
+- **Transform**: Parses XML using `xml2js` and maps it to TypeScript interfaces. It combines Make data with Vehicle Type data into a single unified object.  
 
 ---
 
@@ -72,7 +74,42 @@ The project includes a GitHub Actions workflow that triggers on every push or PR
 
 ## How to Run the Application
 
-### Prerequisites
+
+---
+
+## Deployment (AWS EC2)
+
+The application is deployed in **AWS EC2** using **Docker and Docker Compose**, following a production-ready containerized approach.
+
+- **EC2 Instance**: Ubuntu-based virtual machine  
+- **Container Runtime**: Docker  
+- **Orchestration**: Docker Compose  
+- **Networking**:
+  - Application exposed on port **4000**
+  - Security Group configured to allow inbound traffic on port 4000
+- **Deployment Strategy**:
+  - GitHub Actions builds and publishes the Docker image
+  - The EC2 instance pulls the latest image and restarts the container
+
+### EC2 Runtime Configuration
+
+- The application runs as a **non-root user** inside the container  
+- Environment variables are injected via `.env`  
+- Only production dependencies are installed (`npm ci --omit=dev`)  
+- The container listens on: 0.0.0.0:4000 (internal)
+
+---
+
+### Accessing the Application (Production)
+
+- **GraphQL Playground**:
+http://<EC2_PUBLIC_IP>:4000/graphql
+
+POST http://<EC2_PUBLIC_IP>:4000/ingestion
+
+---
+
+### Prerequisites - Locally
 
 Make sure you have the following installed on your machine:
 
