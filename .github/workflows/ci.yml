@@ -26,7 +26,6 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u gabisinhas --password-stdin
             cd /home/ubuntu/apps/backend
             docker compose pull
             docker compose up -d --remove-orphans
