@@ -77,8 +77,14 @@ export class XmlClient {
     if (!config) {
       throw new Error('Configuration is not defined');
     }
-    const url = `${config.GET_VEHICLE_TYPES_URL}/${makeId}?format=xml`;
 
+    if (!config.GET_VEHICLE_TYPES_URL) {
+      throw new Error(
+        'GET_VEHICLE_TYPES_URL must be defined in the configuration',
+      );
+    }
+
+    const url = `${config.GET_VEHICLE_TYPES_URL.replace('{id}', makeId.toString())}`;
     const retries = config.XML_FETCH_RETRIES ?? 3;
 
     return this.concurrencyLimiter(() => this.fetchWithRetries(url, retries));
